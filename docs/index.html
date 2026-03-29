@@ -899,18 +899,15 @@ function initEditor() {
       <button class="ed-btn" style="background:var(--gray);color:var(--text)" onclick="edDownload()">⬇ Скачать XLSX</button>
       <span id="ed-push-status" style="font-size:12px"></span>
     </div>
-    <div style="margin-top:8px">
-      <details>
-        <summary style="font-size:12px;color:var(--muted);cursor:pointer">⚙ Настройки GitHub</summary>
-        <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input type="password" id="gh-token" placeholder="GitHub Personal Access Token"
-            style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;width:320px"
-            value="">
-          <button class="ed-btn" style="background:var(--gray);color:var(--text);font-size:12px;padding:4px 12px"
-            onclick="localStorage.setItem('gh_token',document.getElementById('gh-token').value);alert('Токен сохранён')">Сохранить</button>
-          <span style="font-size:11px;color:var(--muted)">Нужен токен с правами repo. <a href="https://github.com/settings/tokens/new?scopes=repo&description=Pereezd+Roadmap" target="_blank">Создать →</a></span>
-        </div>
-      </details>
+    <div id="gh-settings" style="display:none;margin-top:8px;padding:8px;background:var(--gray);border-radius:6px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="password" id="gh-token" placeholder="GitHub Personal Access Token"
+          style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;width:320px"
+          value="">
+        <button class="ed-btn" style="background:var(--blue);color:#fff;font-size:12px;padding:4px 12px"
+          onclick="localStorage.setItem('gh_token',document.getElementById('gh-token').value);document.getElementById('gh-settings').style.display='none';alert('Токен сохранён')">Сохранить</button>
+        <span style="font-size:11px;color:var(--muted)">Нужен токен с правами repo. <a href="https://github.com/settings/tokens/new?scopes=repo&description=Pereezd+Roadmap" target="_blank">Создать →</a></span>
+      </div>
     </div>
   </div>
 
@@ -1069,7 +1066,8 @@ const GH_FILE = 'data_entry.xlsx';
 async function edPushToGH() {
   const token = localStorage.getItem('gh_token') || document.getElementById('gh-token').value;
   if (!token) {
-    alert('Введите GitHub Personal Access Token в настройках ниже');
+    document.getElementById('gh-settings').style.display = 'block';
+    alert('Введите GitHub Token и нажмите Сохранить, затем попробуйте снова');
     return;
   }
   const status = document.getElementById('ed-push-status');
@@ -1116,10 +1114,16 @@ async function edPushToGH() {
   }
 }
 
-// Load saved token on init
+// Load saved token + hidden shortcut Ctrl+Shift+G to show settings
 document.addEventListener('DOMContentLoaded', () => {
   const saved = localStorage.getItem('gh_token');
   if (saved) document.getElementById('gh-token').value = saved;
+});
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.shiftKey && e.key === 'G') {
+    const s = document.getElementById('gh-settings');
+    s.style.display = s.style.display === 'none' ? 'block' : 'none';
+  }
 });
 
 initFilters();
