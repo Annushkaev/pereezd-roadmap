@@ -520,15 +520,21 @@ function renderGantt() {
   const rows = getFiltered();
   const container = document.getElementById('tab-gantt');
   const mode = (document.getElementById('gantt-mode') || {}).value || 'compare';
+  const level = (document.getElementById('gantt-level') || {}).value || 'product';
+  const selStyle = 'padding:5px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px';
 
-  // Keep mode selector, clear charts
-  let header = '<div style="margin-bottom:12px;display:flex;align-items:center;gap:12px">'
-    + '<label style="font-size:13px;color:var(--muted)">Режим:</label>'
-    + '<select id="gantt-mode" onchange="render()" style="padding:5px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px">'
+  let header = '<div style="margin-bottom:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">'
+    + '<div><label style="font-size:12px;color:var(--muted)">Режим</label><br>'
+    + `<select id="gantt-mode" onchange="render()" style="${selStyle}">`
     + `<option value="compare" ${mode==='compare'?'selected':''}>Сравнение план/факт</option>`
     + `<option value="plan" ${mode==='plan'?'selected':''}>Только план</option>`
     + `<option value="fact" ${mode==='fact'?'selected':''}>Только факт</option>`
-    + '</select>'
+    + '</select></div>'
+    + '<div><label style="font-size:12px;color:var(--muted)">Детализация</label><br>'
+    + `<select id="gantt-level" onchange="render()" style="${selStyle}">`
+    + `<option value="product" ${level==='product'?'selected':''}>По продукту</option>`
+    + `<option value="subproduct" ${level==='subproduct'?'selected':''}>По подпродукту</option>`
+    + '</select></div>'
     + '<div class="legend" style="margin:0">';
   STAGES.forEach((s,i) => {
     header += `<span><i style="background:${STAGE_COLORS[i]}"></i> ${s}</span>`;
@@ -540,11 +546,14 @@ function renderGantt() {
     const catRows = rows.filter(r => r.cat === cat);
     if (!catRows.length) return;
 
-    // Group by product, aggregate plan/fact per stage
+    // Group by product or subproduct
     const prods = {};
     catRows.forEach(r => {
-      if (!prods[r.prod]) prods[r.prod] = { plans: STAGES.map(()=>null), facts: STAGES.map(()=>null) };
-      const p = prods[r.prod];
+      const key = level === 'subproduct'
+        ? r.prod + (r.subprod ? ' / ' + r.subprod : '') + (r.subseg ? ' (' + r.subseg + ')' : '')
+        : r.prod;
+      if (!prods[key]) prods[key] = { plans: STAGES.map(()=>null), facts: STAGES.map(()=>null), _prod: r.prod };
+      const p = prods[key];
       for (let i = 0; i < STAGES.length; i++) {
         const pd = dateToDays(r.plans[i]);
         const fd = dateToDays(r.facts[i]);
@@ -553,7 +562,10 @@ function renderGantt() {
       }
     });
 
-    const sorted = Object.entries(prods).sort((a,b) => prodOrd(a[0]) - prodOrd(b[0])).filter(([_,d]) => !d.plans.every(v => v === null));
+    const sorted = Object.entries(prods).sort((a,b) => {
+      const dp = prodOrd(a[1]._prod) - prodOrd(b[1]._prod);
+      return dp !== 0 ? dp : a[0].localeCompare(b[0]);
+    }).filter(([_,d]) => !d.plans.every(v => v === null));
     if (!sorted.length) return;
 
     // Build data based on mode
