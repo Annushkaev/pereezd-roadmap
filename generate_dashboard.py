@@ -233,15 +233,28 @@ def generate_html(data):
     instruments = sorted(set(r["instr"] for r in data))
     segments = sorted(set(r["seg"] for r in data))
 
+    # Compact rows: strip null plans/facts, empty strings
+    compact_rows = []
+    for r in data:
+        cr = {k: v for k, v in r.items()
+              if v is not None and v != "" and v != [] and v != 0}
+        # Always keep key fields
+        for k in ("prod", "subprod", "cat", "instr", "active"):
+            cr[k] = r[k]
+        # Compact plans/facts: only include if any non-null
+        cr["plans"] = r["plans"]
+        cr["facts"] = r["facts"]
+        compact_rows.append(cr)
+
     json_data = json.dumps({
-        "rows": data,
+        "rows": compact_rows,
         "kpis": {"progress": round(progress, 4), "red": n_red, "done": n_done, "active": n_active},
         "products": products,
         "categories": categories,
         "instruments": instruments,
         "segments": segments,
         "stages": STAGE_NAMES,
-    }, ensure_ascii=False, default=str)
+    }, ensure_ascii=False, default=str, separators=(',', ':'))
 
     html = f"""<!DOCTYPE html>
 <html lang="ru">
@@ -560,6 +573,13 @@ if (sessionStorage.getItem('auth')==='1') {{
 
 <script>
 const D = {json_data};
+// Normalize: fill defaults for compact JSON
+D.rows.forEach(r => {{
+  r.weight = r.weight || 0; r.progress = r.progress || 0; r.slip = r.slip ?? null;
+  r.subseg = r.subseg || ''; r.epics = r.epics || ''; r.comment = r.comment || '';
+  r.stage = r.stage || 'Не начат'; r.rag = r.rag || '—';
+  r.gantt_start = r.gantt_start || null; r.gantt_end = r.gantt_end || null; r.gantt_fact = r.gantt_fact || null;
+}});
 const STAGES = D.stages;
 const EPOCH = new Date(2026, 0, 1);
 
