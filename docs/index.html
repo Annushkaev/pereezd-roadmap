@@ -512,15 +512,12 @@ function renderDashboard() {
         h += `<td class="mx-na">—</td>`;
       } else {
         const tw = active.reduce((s, r) => s + r.weight, 0) || 1;
-        const pAvg = active.reduce((s, r) => s + r.weight * r.progress, 0) / tw;
-        const pMax = Math.max(...active.map(r => r.progress || 0));
-        const started = active.filter(r => (r.progress || 0) > 0).length;
-        const total = active.length;
-        const pct = Math.round(pAvg * 100);
-        if (pAvg >= 1.0) {
-          h += `<td class="mx-done">100%</td>`;
-        } else if (pMax > 0) {
-          h += `<td class="mx-prog">${started}/${total}<br><span style="font-size:9px;opacity:.7">${Math.round(pMax*100)}% макс</span></td>`;
+        const p = active.reduce((s, r) => s + r.weight * (r.progress || 0), 0) / tw;
+        const pct = Math.round(p * 100);
+        if (p >= 1.0) {
+          h += `<td class="mx-done">${pct}%</td>`;
+        } else if (p > 0) {
+          h += `<td class="mx-prog">${pct}%</td>`;
         } else {
           h += `<td class="mx-zero">0%</td>`;
         }
