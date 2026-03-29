@@ -74,7 +74,13 @@ tr:hover { background: #FFDD2D22; }
              display: inline-block; vertical-align: middle; overflow: hidden; }
 .prog-fill { height: 100%; background: var(--yellow-d); border-radius: 3px; transition: .3s; }
 .matrix-wrap { overflow-x: auto; }
-.matrix td { min-width: 50px; font-size: 11px; }
+.matrix td { min-width: 55px; font-size: 11px; padding: 4px 3px; }
+.mx-na { background: #F0F0F0; color: #ccc; font-size: 10px; }
+.mx-zero { background: #fff; }
+.mx-active { background: #fff; }
+.mx-bar { width: 100%; height: 8px; background: #EAEAEA; border-radius: 4px; overflow: hidden; }
+.mx-fill { height: 100%; border-radius: 4px; transition: width .3s; }
+.mx-pct { font-size: 10px; color: #555; font-weight: 600; display: block; margin-top: 2px; }
 .matrix th.instr { writing-mode: vertical-lr; text-orientation: mixed; padding: 8px 4px;
                     font-size: 10px; min-width: 35px; }
 .stage-grp { background: #444; font-size: 13px; }
@@ -503,14 +509,17 @@ function renderDashboard() {
       const all = allRows.filter(r => r.seg === seg && r.instr === instr);
       const active = all.filter(r => r.active);
       if (!active.length) {
-        h += `<td style="background:#F0F0F0;color:#ccc;font-size:10px">—</td>`;
+        h += `<td class="mx-na">—</td>`;
       } else {
         const tw = active.reduce((s, r) => s + r.weight, 0) || 1;
         const p = active.reduce((s, r) => s + r.weight * r.progress, 0) / tw;
-        const alpha = 0.15 + p * 0.65;
-        const bg = `rgba(18,109,247,${alpha.toFixed(2)})`;
-        const fg = p > 0.4 ? '#fff' : '#333';
-        h += `<td style="background:${bg};color:${fg}">${p > 0 ? fmtPct(p) : '0%'}</td>`;
+        const pct = Math.round(p * 100);
+        if (p === 0) {
+          h += `<td class="mx-zero"></td>`;
+        } else {
+          const barColor = p >= 1 ? 'var(--green)' : p >= 0.5 ? 'var(--yellow-d)' : 'var(--blue)';
+          h += `<td class="mx-active"><div class="mx-bar"><div class="mx-fill" style="width:${pct}%;background:${barColor}"></div></div><span class="mx-pct">${pct}%</span></td>`;
+        }
       }
     });
     h += '</tr>';
