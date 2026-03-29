@@ -142,7 +142,8 @@ def compute(rows, products):
     prod_w = {}
     for p in products:
         k = f'{p["agg"]}|{p["prod"]}|{p["subprod"]}'
-        prod_w[k] = p["w_agg"] * p["w_prod"] * p["w_subprod"]
+        w = p["w_agg"] * p["w_prod"] * p["w_subprod"]
+        prod_w[k] = w if w > 0 else 1.0  # fallback: equal weight if source has 0
     subseg_w = {f"{sp}|{sn}": sw for sp, segs in SUBSEGMENTS for sn, sw in segs}
 
     out = []
