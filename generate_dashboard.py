@@ -334,13 +334,13 @@ tr:hover {{ background: #FFDD2D22; }}
              display: inline-block; vertical-align: middle; overflow: hidden; }}
 .prog-fill {{ height: 100%; background: var(--yellow-d); border-radius: 3px; transition: .3s; }}
 .matrix-wrap {{ overflow-x: auto; }}
-.matrix td {{ min-width: 55px; font-size: 11px; padding: 4px 3px; }}
+.matrix td {{ min-width: 50px; font-size: 11px; }}
 .mx-na {{ background: #F0F0F0; color: #ccc; font-size: 10px; }}
-.mx-zero {{ background: #fff; }}
-.mx-active {{ background: #fff; }}
-.mx-bar {{ width: 100%; height: 8px; background: #EAEAEA; border-radius: 4px; overflow: hidden; }}
-.mx-fill {{ height: 100%; border-radius: 4px; transition: width .3s; }}
-.mx-pct {{ font-size: 10px; color: #555; font-weight: 600; display: block; margin-top: 2px; }}
+.mx-zero {{ background: #fff; color: #bbb; font-weight: 400; }}
+.mx-prog {{ background: var(--blue); color: #fff; font-weight: 700; font-size: 12px;
+            text-shadow: 0 1px 2px rgba(0,0,0,.2); }}
+.mx-done {{ background: var(--green); color: #fff; font-weight: 700; font-size: 12px;
+            text-shadow: 0 1px 2px rgba(0,0,0,.2); }}
 .matrix th.instr {{ writing-mode: vertical-lr; text-orientation: mixed; padding: 8px 4px;
                     font-size: 10px; min-width: 35px; }}
 .stage-grp {{ background: #444; font-size: 13px; }}
@@ -774,11 +774,12 @@ function renderDashboard() {{
         const tw = active.reduce((s, r) => s + r.weight, 0) || 1;
         const p = active.reduce((s, r) => s + r.weight * r.progress, 0) / tw;
         const pct = Math.round(p * 100);
-        if (p === 0) {{
-          h += `<td class="mx-zero"></td>`;
+        if (p >= 1.0) {{
+          h += `<td class="mx-done">${{pct}}%</td>`;
+        }} else if (p > 0) {{
+          h += `<td class="mx-prog">${{pct}}%</td>`;
         }} else {{
-          const barColor = p >= 1 ? 'var(--green)' : p >= 0.5 ? 'var(--yellow-d)' : 'var(--blue)';
-          h += `<td class="mx-active"><div class="mx-bar"><div class="mx-fill" style="width:${{pct}}%;background:${{barColor}}"></div></div><span class="mx-pct">${{pct}}%</span></td>`;
+          h += `<td class="mx-zero">0%</td>`;
         }}
       }}
     }});
@@ -1100,9 +1101,10 @@ function initTabControls() {{
   const selStyle = 'padding:5px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px';
   // Dashboard
   document.getElementById('dash-ctrl').innerHTML =
-    '<div class="legend" style="margin:0"><span><i style="background:rgba(47,84,150,0.15)"></i> Активно (0%)</span>'
-    + '<span><i style="background:rgba(47,84,150,0.7)"></i> Активно (прогресс)</span>'
-    + '<span><i style="background:#F0F0F0;border:1px solid #ddd"></i> Не предусмотрено</span></div>';
+    '<div class="legend" style="margin:0"><span><i style="background:#fff;border:1px solid #ddd"></i> 0% — не начато</span>'
+    + '<span><i style="background:var(--blue)"></i> В процессе</span>'
+    + '<span><i style="background:var(--green)"></i> 100% завершено</span>'
+    + '<span><i style="background:#F0F0F0;border:1px solid #ddd"></i> — не предусмотрено</span></div>';
 
   // Timeline
   document.getElementById('tl-ctrl').innerHTML =
