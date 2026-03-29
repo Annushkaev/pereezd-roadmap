@@ -249,24 +249,27 @@ def generate_html(data):
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
 :root {{
-  --blue: #2F5496; --blue-l: #D6E4F0; --green: #70AD47; --green-l: #C6EFCE;
-  --amber: #FFC000; --amber-l: #FFEB9C; --red: #C00000; --red-l: #FFC7CE;
-  --gray: #F2F2F2; --border: #E0E0E0; --text: #333; --muted: #888;
+  --blue: #126DF7; --blue-l: #E8F0FE; --green: #178D22; --green-l: #E0F5E1;
+  --amber: #F5A623; --amber-l: #FFF3DD; --red: #E31C1C; --red-l: #FFE0E0;
+  --yellow: #FFDD2D; --yellow-d: #F5C800;
+  --gray: #F6F7F8; --border: #E4E7EB; --text: #333; --muted: #888;
 }}
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
        color: var(--text); background: #FAFAFA; }}
-.header {{ background: var(--blue); color: #fff; padding: 16px 24px; }}
+.header {{ background: #333; color: #fff; padding: 16px 24px; }}
 .header h1 {{ font-size: 22px; font-weight: 600; }}
+.header h1 span {{ color: var(--yellow); }}
 .header .sub {{ font-size: 13px; opacity: .7; margin-top: 4px; }}
 .kpi-strip {{ display: flex; gap: 16px; padding: 16px 24px; background: #fff;
               border-bottom: 1px solid var(--border); flex-wrap: wrap; }}
 .kpi {{ text-align: center; padding: 12px 20px; border-radius: 8px; background: var(--gray);
         min-width: 120px; }}
-.kpi .val {{ font-size: 28px; font-weight: 700; color: var(--blue); }}
+.kpi .val {{ font-size: 28px; font-weight: 700; color: #333; }}
 .kpi .lbl {{ font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }}
 .kpi.red .val {{ color: var(--red); }}
 .kpi.green .val {{ color: var(--green); }}
+.kpi.accent .val {{ color: var(--blue); }}
 .controls {{ display: flex; gap: 12px; padding: 12px 24px; background: #fff;
              border-bottom: 1px solid var(--border); align-items: center; flex-wrap: wrap; }}
 .controls label {{ font-size: 12px; color: var(--muted); }}
@@ -277,14 +280,14 @@ body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
            appearance: none; position: relative; }}
 .dd-btn::after {{ content: '▾'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
                   color: var(--muted); pointer-events: none; }}
-.dd-btn.has-selection {{ border-color: var(--blue); color: var(--blue); font-weight: 600; }}
+.dd-btn.has-selection {{ border-color: var(--yellow-d); color: #333; font-weight: 600; background: #FFDD2D33; }}
 .dd-list {{ display: none; position: absolute; top: 100%; left: 0; z-index: 10; background: #fff;
             border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.12);
             max-height: 280px; overflow-y: auto; min-width: 100%; margin-top: 2px; }}
 .dd-list.open {{ display: block; }}
 .dd-list label {{ display: flex; align-items: center; gap: 6px; padding: 6px 12px; cursor: pointer;
                   font-size: 13px; white-space: nowrap; }}
-.dd-list label:hover {{ background: var(--blue-l); }}
+.dd-list label:hover {{ background: #FFDD2D33; }}
 .dd-list input[type=checkbox] {{ accent-color: var(--blue); }}
 .dd-all {{ border-bottom: 1px solid var(--border); font-weight: 600; }}
 .tabs {{ display: flex; gap: 0; background: #fff; border-bottom: 2px solid var(--border);
@@ -292,16 +295,16 @@ body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 .tab-btn {{ padding: 10px 20px; border: none; background: none; cursor: pointer;
             font-size: 14px; color: var(--muted); border-bottom: 2px solid transparent;
             margin-bottom: -2px; transition: .2s; }}
-.tab-btn.active {{ color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }}
-.tab-btn:hover {{ color: var(--blue); }}
+.tab-btn.active {{ color: #333; border-bottom-color: var(--yellow); font-weight: 600; }}
+.tab-btn:hover {{ color: #333; }}
 .tab-content {{ display: none; padding: 20px 24px; }}
 .tab-content.active {{ display: block; }}
 table {{ border-collapse: collapse; width: 100%; font-size: 12px; }}
-th {{ background: var(--blue); color: #fff; padding: 8px 6px; text-align: center;
+th {{ background: #333; color: #fff; padding: 8px 6px; text-align: center;
      font-weight: 600; position: sticky; top: 0; z-index: 1; white-space: nowrap; }}
 td {{ padding: 6px; border: 1px solid var(--border); text-align: center; white-space: nowrap; }}
 tr:nth-child(even) {{ background: #FAFAFA; }}
-tr:hover {{ background: var(--blue-l); }}
+tr:hover {{ background: #FFDD2D22; }}
 .rag-RED {{ background: var(--red-l); color: var(--red); font-weight: 700; }}
 .rag-AMBER {{ background: var(--amber-l); color: #8B6914; font-weight: 700; }}
 .rag-GREEN {{ background: var(--green-l); color: #2E7D32; font-weight: 700; }}
@@ -309,19 +312,19 @@ tr:hover {{ background: var(--blue-l); }}
 .rag-WAIT {{ background: #F2F2F2; color: #888; font-weight: 700; }}
 .prog-bar {{ width: 60px; height: 16px; background: #E8E8E8; border-radius: 3px;
              display: inline-block; vertical-align: middle; overflow: hidden; }}
-.prog-fill {{ height: 100%; background: var(--blue); border-radius: 3px; transition: .3s; }}
+.prog-fill {{ height: 100%; background: var(--yellow-d); border-radius: 3px; transition: .3s; }}
 .matrix-wrap {{ overflow-x: auto; }}
 .matrix td {{ min-width: 50px; font-size: 11px; }}
 .matrix th.instr {{ writing-mode: vertical-lr; text-orientation: mixed; padding: 8px 4px;
                     font-size: 10px; min-width: 35px; }}
-.stage-grp {{ background: #1B3A6B; font-size: 13px; }}
+.stage-grp {{ background: #444; font-size: 13px; }}
 .plan-cell {{ background: var(--blue-l); }}
 .fact-cell {{ background: var(--green-l); }}
 .fact-done {{ background: var(--green); color: #fff; font-weight: 600; }}
 .section-title {{ font-size: 16px; font-weight: 600; color: var(--blue); margin: 16px 0 8px; }}
 .info-box {{ background: #fff; border: 1px solid var(--border); border-radius: 8px;
              padding: 20px; margin: 12px 0; line-height: 1.6; }}
-.info-box h3 {{ color: var(--blue); margin-bottom: 8px; }}
+.info-box h3 {{ color: #333; margin-bottom: 8px; }}
 .info-box ol {{ padding-left: 20px; }}
 .info-box li {{ margin: 6px 0; }}
 .legend {{ display: flex; gap: 16px; margin: 12px 0; font-size: 12px; flex-wrap: wrap; }}
@@ -338,7 +341,7 @@ td.left {{ text-align: left; }}
 .ed-actions input[type=date] {{ padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; }}
 .ed-actions select {{ padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; }}
 .ed-btn {{ padding: 8px 20px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; }}
-.ed-btn-primary {{ background: var(--blue); color: #fff; }}
+.ed-btn-primary {{ background: var(--yellow); color: #333; }}
 .ed-btn-primary:hover {{ opacity: .9; }}
 .ed-btn-success {{ background: var(--green); color: #fff; }}
 .ed-btn-success:hover {{ opacity: .9; }}
@@ -358,14 +361,14 @@ td.left {{ text-align: left; }}
   .kpi .val {{ font-size: 20px; }}
   .controls {{ padding: 8px; }}
 }}
-.auth-overlay {{ position:fixed; inset:0; z-index:999; background:var(--blue);
+.auth-overlay {{ position:fixed; inset:0; z-index:999; background:#333;
   display:flex; align-items:center; justify-content:center; }}
 .auth-box {{ background:#fff; border-radius:12px; padding:40px; text-align:center;
   box-shadow:0 8px 32px rgba(0,0,0,.2); min-width:300px; }}
-.auth-box h2 {{ color:var(--blue); margin-bottom:16px; }}
+.auth-box h2 {{ color:#333; margin-bottom:16px; }}
 .auth-box input {{ padding:10px 14px; border:1px solid var(--border); border-radius:6px;
   font-size:15px; width:100%; margin-bottom:12px; }}
-.auth-box button {{ padding:10px 24px; background:var(--blue); color:#fff; border:none;
+.auth-box button {{ padding:10px 24px; background:var(--yellow); color:#333; border:none; font-weight:600;
   border-radius:6px; font-size:14px; cursor:pointer; width:100%; }}
 .auth-box button:hover {{ opacity:.9; }}
 .auth-box .err {{ color:var(--red); font-size:12px; margin-top:8px; display:none; }}
@@ -385,7 +388,7 @@ td.left {{ text-align: left; }}
 
 <div id="app-content" style="display:none">
 <div class="header">
-  <h1>Roadmap «Переезд»</h1>
+  <h1><span>Roadmap</span> «Переезд»</h1>
   <div class="sub">Миграция на целевую архитектуру — интерактивный дашборд</div>
 </div>
 
@@ -715,7 +718,7 @@ function renderDashboard() {{
     const prod = seg.split(' | ')[0];
     const grp = PROD_GRP[prod] || 'Прочие';
     if (grp !== lastGrp) {{
-      h += `<tr><td colspan="${{nCols}}" style="background:var(--blue);color:#fff;font-weight:700;font-size:13px;padding:6px 10px;text-align:left">${{grp}}</td></tr>`;
+      h += `<tr><td colspan="${{nCols}}" style="background:var(--yellow);color:#333;font-weight:700;font-size:13px;padding:6px 10px;text-align:left">${{grp}}</td></tr>`;
       lastGrp = grp;
     }}
     h += `<tr><td class="left" style="font-weight:600">${{seg}}</td>`;
@@ -729,7 +732,7 @@ function renderDashboard() {{
         const tw = active.reduce((s, r) => s + r.weight, 0) || 1;
         const p = active.reduce((s, r) => s + r.weight * r.progress, 0) / tw;
         const alpha = 0.15 + p * 0.65;
-        const bg = `rgba(47,84,150,${{alpha.toFixed(2)}})`;
+        const bg = `rgba(18,109,247,${{alpha.toFixed(2)}})`;
         const fg = p > 0.4 ? '#fff' : '#333';
         h += `<td style="background:${{bg}};color:${{fg}}">${{p > 0 ? fmtPct(p) : '0%'}}</td>`;
       }}
