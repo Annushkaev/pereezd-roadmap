@@ -248,8 +248,16 @@ def compute(rows, products):
 
 def generate_html(data):
     active = [r for r in data if r["active"]]
-    # KPIs — equal weight per active row
-    progress = sum(r["progress"] for r in active) / len(active) if active else 0
+    # KPIs — average of Dashboard cells (segment × instrument), each cell equal
+    cells = {}
+    for r in active:
+        key = f'{r["seg"]}|{r["instr"]}'
+        if key not in cells:
+            cells[key] = {"tw": 0, "wp": 0}
+        cells[key]["tw"] += r["weight"]
+        cells[key]["wp"] += r["weight"] * r["progress"]
+    cell_progs = [c["wp"] / c["tw"] if c["tw"] > 0 else 0 for c in cells.values()]
+    progress = sum(cell_progs) / len(cell_progs) if cell_progs else 0
     n_red = sum(1 for r in active if r["rag"] == "RED")
     n_done = sum(1 for r in active if r["rag"] == "DONE")
     n_active = len(active)
@@ -740,11 +748,20 @@ function dateToDays(s) {{
 // ── KPIs ──
 function renderKPIs() {{
   const rows = getFiltered();
-  const prog = rows.length ? rows.reduce((s, r) => s + (r.progress || 0), 0) / rows.length : 0;
+  // Average of Dashboard cells (segment × instrument), each cell equal
+  const cells = {{}};
+  rows.forEach(r => {{
+    const k = r.seg + '|' + r.instr;
+    if (!cells[k]) cells[k] = {{tw:0, wp:0}};
+    cells[k].tw += r.weight;
+    cells[k].wp += r.weight * (r.progress || 0);
+  }});
+  const cv = Object.values(cells);
+  const prog = cv.length ? cv.reduce((s,c) => s + (c.tw ? c.wp/c.tw : 0), 0) / cv.length : 0;
   const red = rows.filter(r => r.rag === 'RED').length;
   const done = rows.filter(r => r.rag === 'DONE').length;
   document.getElementById('kpis').innerHTML = `
-    <div class="kpi"><div class="val">${{fmtPct(prog)}}</div><div class="lbl">Прогресс <span class="info-tip" title="Среднее арифметическое прогресса по всем активным строкам (равные веса). Этапы: Разработка 1%, e2e 5%, 1%→20%, 5%→40%, 50%→75%, 100%→100%">ⓘ</span></div></div>
+    <div class="kpi"><div class="val">${{fmtPct(prog)}}</div><div class="lbl">Прогресс <span class="info-tip" title="Среднее по ячейкам Dashboard (сегмент × инструмент). Каждая ячейка равна, внутри — взвешено по подпродуктам. Этапы: Разработка 1%, e2e 5%, 1%→20%, 5%→40%, 50%→75%, 100%→100%">ⓘ</span></div></div>
     <div class="kpi"><div class="val">${{rows.length}}</div><div class="lbl">Активных <span class="info-tip" title="Количество строк с Активен=Да, прошедших через текущие фильтры">ⓘ</span></div></div>
     <div class="kpi red"><div class="val">${{red}}</div><div class="lbl">RED <span class="info-tip" title="Ближайший плановый этап просрочен более чем на 14 дней (план vs сегодня)">ⓘ</span></div></div>
     <div class="kpi green"><div class="val">${{done}}</div><div class="lbl">DONE <span class="info-tip" title="Все 6 этапов завершены — фактическая дата 100% заполнена">ⓘ</span></div></div>
