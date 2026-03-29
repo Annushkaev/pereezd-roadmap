@@ -893,10 +893,24 @@ function initEditor() {
   </div>
 
   <div class="ed-section">
-    <h4>4. Скачать результат</h4>
+    <h4>4. Сохранить</h4>
     <div class="ed-actions">
-      <button class="ed-btn ed-btn-success" onclick="edDownload()">⬇ Скачать data_entry.xlsx</button>
-      <span style="font-size:12px;color:var(--muted)">Замените файл в репозитории и запустите generate.py</span>
+      <button class="ed-btn ed-btn-success" onclick="edPushToGH()">🚀 Опубликовать в GitHub</button>
+      <button class="ed-btn" style="background:var(--gray);color:var(--text)" onclick="edDownload()">⬇ Скачать XLSX</button>
+      <span id="ed-push-status" style="font-size:12px"></span>
+    </div>
+    <div style="margin-top:8px">
+      <details>
+        <summary style="font-size:12px;color:var(--muted);cursor:pointer">⚙ Настройки GitHub</summary>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="password" id="gh-token" placeholder="GitHub Personal Access Token"
+            style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;width:320px"
+            value="">
+          <button class="ed-btn" style="background:var(--gray);color:var(--text);font-size:12px;padding:4px 12px"
+            onclick="localStorage.setItem('gh_token',document.getElementById('gh-token').value);alert('Токен сохранён')">Сохранить</button>
+          <span style="font-size:11px;color:var(--muted)">Нужен токен с правами repo. <a href="https://github.com/settings/tokens/new?scopes=repo&description=Pereezd+Roadmap" target="_blank">Создать →</a></span>
+        </div>
+      </details>
     </div>
   </div>
 
@@ -984,23 +998,85 @@ function edApplyDates() {
   alert(`Даты этапа "${STAGES[stageIdx]}" обновлены для ${sel.length} строк`);
 }
 
-function edDownload() {
-  // Build worksheet data
+function edBuildXLSX() {
   const headers = ["Агрегация", "Продукт", "Подпродукт", "Подсегмент", "Категория ПЗ", "Группа инструмента", "Инструмент", "Активен", "Старт разработки план", "Интеграционное тестирование план", "1% план", "5% план", "50% план", "100% план", "Старт разработки факт", "Интеграционное тестирование факт", "1% факт", "5% факт", "50% факт", "100% факт", "Старт разработки baseline", "Интеграционное тестирование baseline", "1% baseline", "5% baseline", "50% baseline", "100% baseline", "Эпики", "Комментарии"];
   const wsData = [headers];
   D.rows.forEach(r => {
     const row = [r.agg, r.prod, r.subprod, r.subseg||'', r.cat, r.igrp, r.instr, r.active ? 'Да' : 'Нет'];
     STAGES.forEach((_, i) => row.push(r.plans[i] || ''));
     STAGES.forEach((_, i) => row.push(r.facts[i] || ''));
-    STAGES.forEach(() => row.push(''));  // baseline empty
+    STAGES.forEach(() => row.push(''));  // baseline
     row.push(r.epics || '', r.comment || '');
     wsData.push(row);
   });
   const ws = XLSX.utils.aoa_to_sheet(wsData);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'DATA');
-  XLSX.writeFile(wb, 'data_entry.xlsx');
+  return wb;
 }
+
+function edDownload() {
+  XLSX.writeFile(edBuildXLSX(), 'data_entry.xlsx');
+}
+
+const GH_REPO = 'Annushkaev/pereezd-roadmap';
+const GH_FILE = 'data_entry.xlsx';
+
+async function edPushToGH() {
+  const token = localStorage.getItem('gh_token') || document.getElementById('gh-token').value;
+  if (!token) {
+    alert('Введите GitHub Personal Access Token в настройках ниже');
+    return;
+  }
+  const status = document.getElementById('ed-push-status');
+  status.textContent = '⏳ Публикация...'; status.style.color = 'var(--blue)';
+
+  try {
+    // 1. Generate XLSX as base64
+    const wbout = XLSX.write(edBuildXLSX(), { type: 'base64', bookType: 'xlsx' });
+
+    // 2. Get current file SHA
+    const getResp = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`, {
+      headers: { 'Authorization': `token ${token}` }
+    });
+    let sha = '';
+    if (getResp.ok) {
+      const data = await getResp.json();
+      sha = data.sha;
+    }
+
+    // 3. Push file
+    const putResp = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        message: 'Обновление данных из дашборда',
+        content: wbout,
+        sha: sha || undefined
+      })
+    });
+
+    if (putResp.ok) {
+      status.textContent = '✅ Опубликовано! GitHub Actions перегенерирует дашборд через ~1 мин.';
+      status.style.color = 'var(--green)';
+    } else {
+      const err = await putResp.json();
+      throw new Error(err.message || putResp.status);
+    }
+  } catch(e) {
+    status.textContent = '❌ Ошибка: ' + e.message;
+    status.style.color = 'var(--red)';
+  }
+}
+
+// Load saved token on init
+document.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('gh_token');
+  if (saved) document.getElementById('gh-token').value = saved;
+});
 
 initFilters();
 initTabControls();
