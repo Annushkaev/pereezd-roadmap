@@ -433,10 +433,32 @@ td.left {{ text-align: left; }}
   .kpi .val {{ font-size: 20px; }}
   .controls {{ padding: 8px; }}
 }}
+.auth-overlay {{ position:fixed; inset:0; z-index:999; background:var(--blue);
+  display:flex; align-items:center; justify-content:center; }}
+.auth-box {{ background:#fff; border-radius:12px; padding:40px; text-align:center;
+  box-shadow:0 8px 32px rgba(0,0,0,.2); min-width:300px; }}
+.auth-box h2 {{ color:var(--blue); margin-bottom:16px; }}
+.auth-box input {{ padding:10px 14px; border:1px solid var(--border); border-radius:6px;
+  font-size:15px; width:100%; margin-bottom:12px; }}
+.auth-box button {{ padding:10px 24px; background:var(--blue); color:#fff; border:none;
+  border-radius:6px; font-size:14px; cursor:pointer; width:100%; }}
+.auth-box button:hover {{ opacity:.9; }}
+.auth-box .err {{ color:var(--red); font-size:12px; margin-top:8px; display:none; }}
 </style>
 </head>
 <body>
 
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-box">
+    <h2>Roadmap Переезд</h2>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:16px">Введите пароль для доступа</p>
+    <input type="password" id="auth-pw" placeholder="Пароль" onkeydown="if(event.key==='Enter')checkAuth()">
+    <button onclick="checkAuth()">Войти</button>
+    <div class="err" id="auth-err">Неверный пароль</div>
+  </div>
+</div>
+
+<div id="app-content" style="display:none">
 <div class="header">
   <h1>Roadmap «Переезд»</h1>
   <div class="sub">Миграция на целевую архитектуру — интерактивный дашборд</div>
@@ -507,6 +529,30 @@ td.left {{ text-align: left; }}
        Столбец «Сдвиг» покажет разницу с базелайном. Без базелайна RAG = «—».</p>
   </div>
 </div>
+</div><!-- /app-content -->
+
+<script>
+const PW_HASH = 'fa7496e4ae840306df41bd658800392e24db8ac4767159d6bdf8a23b28c44ea0';
+async function sha256(s) {{
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,'0')).join('');
+}}
+async function checkAuth() {{
+  const pw = document.getElementById('auth-pw').value;
+  const hash = await sha256(pw);
+  if (hash === PW_HASH) {{
+    sessionStorage.setItem('auth','1');
+    document.getElementById('auth-overlay').style.display='none';
+    document.getElementById('app-content').style.display='block';
+  }} else {{
+    document.getElementById('auth-err').style.display='block';
+  }}
+}}
+if (sessionStorage.getItem('auth')==='1') {{
+  document.getElementById('auth-overlay').style.display='none';
+  document.getElementById('app-content').style.display='block';
+}}
+</script>
 
 <script>
 const D = {json_data};
@@ -789,34 +835,59 @@ function renderTimeline() {{
 }}
 
 // ── Gantt ──
+const STAGE_COLORS = ['#264653','#2A9D8F','#E9C46A','#F4A261','#E76F51','#E63946'];
+const STAGE_COLORS_LIGHT = ['#264653AA','#2A9D8FAA','#E9C46AAA','#F4A261AA','#E76F51AA','#E63946AA'];
+
 function renderGantt() {{
   const rows = getFiltered();
   const container = document.getElementById('tab-gantt');
   container.innerHTML = '';
-  const catColors = {{'PRE':'#C00000','1':'#ED7D31','2':'#FFC000','3':'#70AD47','4':'#4472C4'}};
 
   D.categories.forEach(cat => {{
     const catRows = rows.filter(r => r.cat === cat);
     if (!catRows.length) return;
 
+    // Group by product, aggregate plan/fact per stage
     const prods = {{}};
     catRows.forEach(r => {{
-      if (!prods[r.prod]) prods[r.prod] = [];
-      prods[r.prod].push(r);
+      if (!prods[r.prod]) prods[r.prod] = {{ plans: STAGES.map(()=>null), facts: STAGES.map(()=>null) }};
+      const p = prods[r.prod];
+      for (let i = 0; i < STAGES.length; i++) {{
+        const pd = dateToDays(r.plans[i]);
+        const fd = dateToDays(r.facts[i]);
+        if (pd !== null && (p.plans[i] === null || pd < p.plans[i])) p.plans[i] = pd;
+        if (fd !== null && (p.facts[i] === null || fd > p.facts[i])) p.facts[i] = fd;
+      }}
     }});
 
-    const labels = [], gaps = [], dones = [], remains = [];
-    Object.entries(prods).sort((a,b) => prodOrd(a[0]) - prodOrd(b[0])).forEach(([prod, items]) => {{
-      const starts = items.map(r => dateToDays(r.gantt_start)).filter(d => d !== null);
-      const ends = items.map(r => dateToDays(r.gantt_end)).filter(d => d !== null);
-      const lastFacts = items.map(r => dateToDays(r.gantt_fact)).filter(d => d !== null && d > 0);
-      if (!starts.length || !ends.length) return;
-      const s = Math.min(...starts), e = Math.max(...ends);
-      const f = lastFacts.length ? Math.max(...lastFacts) : s;
+    // Build stage durations per product
+    const labels = [];
+    const gapArr = [];
+    const stageDurs = STAGES.map(() => []);  // stageDurs[stageIdx][prodIdx]
+    const stageDone = STAGES.map(() => []);  // true/false per product
+
+    Object.entries(prods).sort((a,b) => prodOrd(a[0]) - prodOrd(b[0])).forEach(([prod, d]) => {{
+      if (d.plans.every(v => v === null)) return;
       labels.push(prod);
-      gaps.push(s);
-      dones.push(Math.max(f - s, 0));
-      remains.push(Math.max(e - f, 0));
+
+      // Find first non-null plan as gap
+      const firstPlan = d.plans.find(v => v !== null) || 0;
+      gapArr.push(firstPlan);
+
+      for (let i = 0; i < STAGES.length; i++) {{
+        let dur = 0;
+        if (d.plans[i] !== null) {{
+          // Duration = next stage plan - this stage plan (or 30 days for last stage)
+          let nextPlan = null;
+          for (let j = i + 1; j < STAGES.length; j++) {{
+            if (d.plans[j] !== null) {{ nextPlan = d.plans[j]; break; }}
+          }}
+          dur = nextPlan !== null ? nextPlan - d.plans[i] : 30;
+          if (dur < 0) dur = 0;
+        }}
+        stageDurs[i].push(dur);
+        stageDone[i].push(d.facts[i] !== null);
+      }}
     }});
 
     if (!labels.length) return;
@@ -826,6 +897,7 @@ function renderGantt() {{
     div.id = 'gantt-' + cat;
     container.appendChild(div);
 
+    // Month ticks
     const tv = [], tt = [];
     const mNames = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
     for (let y = 2026; y <= 2028; y++)
@@ -834,15 +906,24 @@ function renderGantt() {{
         if (days >= -30 && days <= 800) {{ tv.push(days); tt.push(mNames[m] + "'" + String(y).slice(2)); }}
       }}
 
+    // Traces: gap + one per stage
+    const traces = [
+      {{ type:'bar', orientation:'h', y:labels, x:gapArr, name:'', showlegend:false,
+         marker:{{color:'rgba(0,0,0,0)'}}, hoverinfo:'skip' }}
+    ];
+    for (let i = 0; i < STAGES.length; i++) {{
+      // Per-bar color: solid if done, lighter if not
+      const colors = stageDone[i].map(done => done ? STAGE_COLORS[i % STAGE_COLORS.length] : STAGE_COLORS_LIGHT[i % STAGE_COLORS_LIGHT.length]);
+      traces.push({{
+        type:'bar', orientation:'h', y:labels, x:stageDurs[i],
+        name: STAGES[i],
+        marker:{{ color: colors }},
+        hovertemplate: STAGES[i] + ': %{{x}} дн.<extra></extra>'
+      }});
+    }}
+
     const todayDays = Math.round((new Date() - EPOCH) / 86400000);
-    Plotly.newPlot(div, [
-      {{ type:'bar', orientation:'h', y:labels, x:gaps, name:'', showlegend:false,
-         marker:{{color:'rgba(0,0,0,0)'}}, hoverinfo:'skip' }},
-      {{ type:'bar', orientation:'h', y:labels, x:dones, name:'Выполнено',
-         marker:{{color:catColors[cat] || '#4472C4'}} }},
-      {{ type:'bar', orientation:'h', y:labels, x:remains, name:'Осталось',
-         marker:{{color:'#D6DCE4'}} }}
-    ], {{
+    Plotly.newPlot(div, traces, {{
       barmode:'stack', title:'ПЗ ' + cat,
       xaxis:{{ tickvals:tv, ticktext:tt, gridcolor:'#eee',
                range:[0, Math.round((new Date(2026,11,31)-EPOCH)/864e5)] }},
@@ -856,7 +937,7 @@ function renderGantt() {{
       }}],
       annotations: [{{
         x: todayDays, y: 1.02, yref: 'paper', text: 'Сегодня', showarrow: false,
-        font: {{ size: 11, color: '#C00000', weight: 'bold' }}
+        font: {{ size: 11, color: '#C00000' }}
       }}]
     }}, {{ responsive:true }});
   }});
