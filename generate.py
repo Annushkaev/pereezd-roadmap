@@ -1,28 +1,35 @@
 #!/usr/bin/env python3
 """Generate interactive HTML dashboard for Переезд roadmap.
 
+Self-contained script — no external imports from vault scripts.
+
 Usage:
-  python3 generate_dashboard.py          # generate XLSX (if missing) + HTML
-  python3 generate_dashboard.py --init   # force-regenerate XLSX from Confluence
+  python3 generate.py          # generate XLSX (if missing) + HTML
+  python3 generate.py --init   # force-regenerate XLSX from Confluence
 """
 
-import csv, json, datetime, sys
+import csv, json, datetime, re, sys, quopri
+from html.parser import HTMLParser
 from pathlib import Path
 
 import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill, Protection
+from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
-sys.path.insert(0, str(Path(__file__).parent))
-from generate_roadmap import (parse_products, parse_instruments,
-                               CATEGORIES, SUBSEGMENTS, ROADMAP_DIR)
+# ── Paths ─────────────────────────────────────────────────────────────
+ROOT = Path(__file__).resolve().parent
+SOURCE_DIR = ROOT / "source"
+ENTRY_PATH = ROOT / "data_entry.xlsx"
+HTML_PATH = ROOT / "docs" / "index.html"
+
+# ── Constants ─────────────────────────────────────────────────────────
+CATEGORIES = ["PRE", "1", "2", "3", "4"]
+SUBSEGMENTS = [("Обычная (все грейсы)", [("до 200к", 0.5), ("свыше 200к", 0.5)])]
 
 # 6-stage pipeline
 STAGES = [("Старт разработки", 0.05), ("Интеграционное тестирование", 0.10),
           ("1%", 0.20), ("5%", 0.40), ("50%", 0.75), ("100%", 1.00)]
-
-ENTRY_PATH = ROADMAP_DIR / "data_entry.xlsx"
-HTML_PATH = ROADMAP_DIR / "Roadmap_Переезд.html"
 
 STAGE_NAMES = [s[0] for s in STAGES]
 STAGE_WEIGHTS = dict(STAGES)
@@ -32,6 +39,97 @@ BASE_COLS = [f"{s} baseline" for s in STAGE_NAMES]
 CSV_HEADERS = (["Агрегация","Продукт","Подпродукт","Подсегмент","Категория ПЗ",
                 "Группа инструмента","Инструмент","Активен"]
                + PLAN_COLS + FACT_COLS + BASE_COLS + ["Эпики","Комментарии"])
+
+
+# ── Confluence HTML Parser ───────────────────────────────────────────
+
+class ConfluenceTableParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.in_table = self.in_row = self.in_cell = False
+        self.rows, self._row, self._cell = [], [], ""
+        self._col, self._rowspans, self._colspan, self._rowspan = 0, {}, 1, 1
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == "table": self.in_table = True
+        elif tag == "tr" and self.in_table:
+            self.in_row = True; self._row = []; self._col = 0
+        elif tag in ("td", "th") and self.in_row:
+            self.in_cell = True; self._cell = ""
+            while self._col in self._rowspans and self._rowspans[self._col] > 0:
+                self._row.append(self._rowspans.get(f"{self._col}_v", ""))
+                self._rowspans[self._col] -= 1
+                if self._rowspans[self._col] == 0:
+                    del self._rowspans[self._col]; self._rowspans.pop(f"{self._col}_v", None)
+                self._col += 1
+            self._colspan = int(a.get("colspan", "1")); self._rowspan = int(a.get("rowspan", "1"))
+
+    def handle_data(self, data):
+        if self.in_cell: self._cell += data.strip()
+
+    def handle_endtag(self, tag):
+        if tag in ("td", "th") and self.in_cell:
+            self.in_cell = False; v = self._cell.strip()
+            for i in range(self._colspan):
+                self._row.append(v if i == 0 else "")
+                if self._rowspan > 1:
+                    self._rowspans[self._col] = self._rowspan - 1
+                    self._rowspans[f"{self._col}_v"] = v
+                self._col += 1
+        elif tag == "tr" and self.in_row:
+            self.in_row = False
+            while self._col in self._rowspans and self._rowspans[self._col] > 0:
+                self._row.append(self._rowspans.get(f"{self._col}_v", ""))
+                self._rowspans[self._col] -= 1
+                if self._rowspans[self._col] == 0:
+                    del self._rowspans[self._col]; self._rowspans.pop(f"{self._col}_v", None)
+                self._col += 1
+            self.rows.append(self._row)
+        elif tag == "table": self.in_table = False
+
+
+def _decode_confluence(path):
+    raw = path.read_text(encoding="utf-8")
+    s, e = raw.find("<html"), raw.find("</html>") + 7
+    return quopri.decodestring(raw[s:e].encode()).decode("utf-8")
+
+def _pct(s):
+    s = s.strip().replace("%", "").replace(",", ".")
+    try: return float(s) / 100.0 if s else 0.0
+    except ValueError: return 0.0
+
+def parse_products(path):
+    html = _decode_confluence(path)
+    p = ConfluenceTableParser(); p.feed(html)
+    items = []
+    for row in p.rows[1:]:
+        while len(row) < 6: row.append("")
+        sub = row[4].strip() if row[4].strip() else row[2].strip()
+        items.append(dict(agg=row[0].strip(), w_agg=_pct(row[1]),
+                          prod=row[2].strip(), w_prod=_pct(row[3]),
+                          subprod=sub, w_subprod=_pct(row[5])))
+    return items
+
+def _clean_name(s):
+    """Strip parenthetical notes from instrument names."""
+    return re.sub(r'\s*\(.*$', '', s).strip()
+
+def parse_instruments(path):
+    html = _decode_confluence(path)
+    body = html[html.find("<body"):html.find("</body>")]
+    items = []
+    for grp_html, sub_html in re.findall(r'<li><p[^>]*>(.*?)</p>\s*(?:<ol[^>]*>(.*?)</ol>)?', body, re.DOTALL):
+        grp = _clean_name(re.sub(r'<[^>]+>', '', grp_html).strip())
+        if sub_html.strip():
+            subs = re.findall(r'<li>.*?<p[^>]*>(.*?)</p>.*?</li>', sub_html, re.DOTALL)
+            if not subs: subs = re.findall(r'<li><span>(.*?)</span></li>', sub_html, re.DOTALL)
+            for si in subs:
+                items.append(dict(group=grp, instrument=_clean_name(re.sub(r'<[^>]+>', '', si).strip())))
+        else:
+            items.append(dict(group=grp, instrument=grp))
+    return items
+
 
 # ── XLSX Entry ───────────────────────────────────────────────────────
 
@@ -60,7 +158,7 @@ def generate_entry_xlsx(products, instruments):
     date_fact_cols = list(range(plan_start + n_stages, plan_start + 2*n_stages))
     date_base_cols = list(range(plan_start + 2*n_stages, plan_start + 3*n_stages))
     for ci, w in enumerate(widths):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(ci+1)].width = w
+        ws.column_dimensions[get_column_letter(ci+1)].width = w
 
     # Data
     sm = {sp: segs for sp, segs in SUBSEGMENTS}
@@ -102,7 +200,7 @@ def generate_entry_xlsx(products, instruments):
     ws.auto_filter.ref = f"A1:Y{row_n-1}"
 
     wb.save(str(ENTRY_PATH))
-    print(f"  XLSX: {total} rows → {ENTRY_PATH.name}")
+    print(f"  XLSX: {total} rows -> {ENTRY_PATH.name}")
 
 def read_entry_xlsx():
     """Read the data entry XLSX."""
@@ -121,6 +219,7 @@ def read_entry_xlsx():
             row[h] = str(v) if v is not None else ""
         rows.append(row)
     return rows
+
 
 # ── Computation ──────────────────────────────────────────────────────
 
@@ -176,7 +275,7 @@ def compute(rows, products):
 
         # Stage & progress
         stage = "Не начат"
-        for i in range(4, -1, -1):
+        for i in range(len(STAGES) - 1, -1, -1):
             if facts[i]:
                 stage = STAGE_NAMES[i]; break
         r["stage"] = stage
@@ -211,6 +310,7 @@ def compute(rows, products):
 
         out.append(r)
     return out
+
 
 # ── HTML ─────────────────────────────────────────────────────────────
 
@@ -274,7 +374,7 @@ body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
            font-size: 13px; background: #fff; cursor: pointer; min-width: 150px; text-align: left;
            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;
            appearance: none; position: relative; }}
-.dd-btn::after {{ content: '▾'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+.dd-btn::after {{ content: '\u25be'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
                   color: var(--muted); pointer-events: none; }}
 .dd-btn.has-selection {{ border-color: var(--blue); color: var(--blue); font-weight: 600; }}
 .dd-list {{ display: none; position: absolute; top: 100%; left: 0; z-index: 10; background: #fff;
@@ -361,7 +461,7 @@ td.left {{ text-align: left; }}
 <div class="tabs">
   <button class="tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</button>
   <button class="tab-btn" data-tab="timeline" onclick="switchTab('timeline')">Timeline</button>
-  <button class="tab-btn" data-tab="gantt" onclick="switchTab('gantt')">Ганг</button>
+  <button class="tab-btn" data-tab="gantt" onclick="switchTab('gantt')">Гант</button>
   <button class="tab-btn" data-tab="data" onclick="switchTab('data')">Данные</button>
   <button class="tab-btn" data-tab="help" onclick="switchTab('help')">Инструкция</button>
 </div>
@@ -378,17 +478,17 @@ td.left {{ text-align: left; }}
       <li><b>Активируйте комбинации:</b> в столбце H (Активен) выберите «Да» из выпадающего списка.</li>
       <li><b>Введите плановые даты</b> этапов (голубые столбцы: ИТ план … 100% план).</li>
       <li><b>Обновляйте фактические даты</b> по мере прогресса (зелёные столбцы).</li>
-      <li><b>Сохраните и перегенерируйте:</b> <code>python3 generate_dashboard.py</code></li>
-      <li><b>Откройте Roadmap_Переезд.html</b> в браузере — дашборд обновится.</li>
+      <li><b>Сохраните и перегенерируйте:</b> <code>python3 generate.py</code></li>
+      <li><b>Откройте docs/index.html</b> в браузере — дашборд обновится.</li>
     </ol>
   </div>
   <div class="info-box">
     <h3>Вкладки</h3>
     <table>
       <tr><th style="text-align:left">Вкладка</th><th style="text-align:left">Назначение</th></tr>
-      <tr><td class="left"><b>Dashboard</b></td><td class="left">Матрица Сегмент × Инструмент — общий прогресс</td></tr>
+      <tr><td class="left"><b>Dashboard</b></td><td class="left">Матрица Сегмент x Инструмент — общий прогресс</td></tr>
       <tr><td class="left"><b>Timeline</b></td><td class="left">Этапы миграции с план/факт датами</td></tr>
-      <tr><td class="left"><b>Ганг</b></td><td class="left">Диаграмма Ганта по продуктам (5 категорий ПЗ)</td></tr>
+      <tr><td class="left"><b>Гант</b></td><td class="left">Диаграмма Ганта по продуктам (5 категорий ПЗ)</td></tr>
       <tr><td class="left"><b>Данные</b></td><td class="left">Полная таблица со всеми вычисленными полями</td></tr>
     </table>
   </div>
@@ -564,7 +664,7 @@ function renderDashboard() {{
   const PROD_GRP = {{
     'КК':'Незалоговые','КН':'Незалоговые','КЛ':'Незалоговые','КНР':'Незалоговые','КНО':'Незалоговые',
     'POS':'Незалоговые','BNPL':'Незалоговые','Долями+':'Незалоговые','Кубышка':'Незалоговые','Незалоги.Дабл':'Незалоговые',
-    'Авто':'Залоговые','Недвижимость':'Залоговые','КЛ':'Незалоговые','Залоги.Дабл':'Залоговые',
+    'Авто':'Залоговые','Недвижимость':'Залоговые','Залоги.Дабл':'Залоговые',
     'Умершие':'Спецсегменты','Банкроты':'Спецсегменты','Нерезиденты':'Спецсегменты','3P':'Спецсегменты','Инсталлмент':'Спецсегменты'
   }};
   const nCols = instrs.length + 1;
@@ -584,7 +684,6 @@ function renderDashboard() {{
       const all = allRows.filter(r => r.seg === seg && r.instr === instr);
       const active = all.filter(r => r.active);
       if (!active.length) {{
-        // Inactive: show as grayed out, not counted in progress
         h += `<td style="background:#F0F0F0;color:#ccc;font-size:10px">—</td>`;
       }} else {{
         const tw = active.reduce((s, r) => s + r.weight, 0) || 1;
@@ -611,7 +710,7 @@ function renderTimeline() {{
     + '<input type="checkbox" id="f-tl-detail" onchange="render()"> Детализация по подпродуктам</label></div>';
 
   if (detailed) {{
-    // ── Detailed: one row per subproduct × instrument ──
+    // ── Detailed: one row per subproduct x instrument ──
     let detail = rows.map(r => ({{...r}}));
     if (hideInactive) detail = detail.filter(r => r.plans.some(Boolean) || r.facts.some(Boolean));
     detail.sort((a,b) => {{
@@ -640,7 +739,7 @@ function renderTimeline() {{
     h += '</tbody></table></div>';
 
   }} else {{
-    // ── Aggregated: segment × instrument ──
+    // ── Aggregated: segment x instrument ──
     const groups = {{}};
     rows.forEach(r => {{
       const k = r.seg + '|' + r.instr;
@@ -697,11 +796,9 @@ function renderGantt() {{
   const catColors = {{'PRE':'#C00000','1':'#ED7D31','2':'#FFC000','3':'#70AD47','4':'#4472C4'}};
 
   D.categories.forEach(cat => {{
-    // Filter to current category (respect product filter too)
     const catRows = rows.filter(r => r.cat === cat);
     if (!catRows.length) return;
 
-    // Group by product
     const prods = {{}};
     catRows.forEach(r => {{
       if (!prods[r.prod]) prods[r.prod] = [];
@@ -729,7 +826,6 @@ function renderGantt() {{
     div.id = 'gantt-' + cat;
     container.appendChild(div);
 
-    // Month ticks
     const tv = [], tt = [];
     const mNames = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
     for (let y = 2026; y <= 2028; y++)
@@ -815,6 +911,7 @@ render();
 </body>
 </html>"""
 
+    HTML_PATH.parent.mkdir(parents=True, exist_ok=True)
     HTML_PATH.write_text(html, encoding="utf-8")
     print(f"  HTML: {HTML_PATH.name} ({HTML_PATH.stat().st_size // 1024} KB)")
 
@@ -822,14 +919,14 @@ render();
 # ── Main ─────────────────────────────────────────────────────────────
 
 def main():
-    force_csv = "--init" in sys.argv
+    force_init = "--init" in sys.argv
 
     print("Parsing Confluence exports...")
-    products = parse_products(ROADMAP_DIR / "Продукты+для+переезда.doc")
-    instruments = parse_instruments(ROADMAP_DIR / "Инструменты+для+переезда.doc")
+    products = parse_products(SOURCE_DIR / "Продукты+для+переезда.doc")
+    instruments = parse_instruments(SOURCE_DIR / "Инструменты+для+переезда.doc")
     print(f"  Products: {len(products)}, Instruments: {len(instruments)}")
 
-    if force_csv or not ENTRY_PATH.exists():
+    if force_init or not ENTRY_PATH.exists():
         print("Generating entry XLSX...")
         generate_entry_xlsx(products, instruments)
     else:

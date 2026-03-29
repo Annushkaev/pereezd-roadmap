@@ -120,7 +120,7 @@ td.left { text-align: left; }
 <div class="tabs">
   <button class="tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</button>
   <button class="tab-btn" data-tab="timeline" onclick="switchTab('timeline')">Timeline</button>
-  <button class="tab-btn" data-tab="gantt" onclick="switchTab('gantt')">Ганг</button>
+  <button class="tab-btn" data-tab="gantt" onclick="switchTab('gantt')">Гант</button>
   <button class="tab-btn" data-tab="data" onclick="switchTab('data')">Данные</button>
   <button class="tab-btn" data-tab="help" onclick="switchTab('help')">Инструкция</button>
 </div>
@@ -137,17 +137,17 @@ td.left { text-align: left; }
       <li><b>Активируйте комбинации:</b> в столбце H (Активен) выберите «Да» из выпадающего списка.</li>
       <li><b>Введите плановые даты</b> этапов (голубые столбцы: ИТ план … 100% план).</li>
       <li><b>Обновляйте фактические даты</b> по мере прогресса (зелёные столбцы).</li>
-      <li><b>Сохраните и перегенерируйте:</b> <code>python3 generate_dashboard.py</code></li>
-      <li><b>Откройте Roadmap_Переезд.html</b> в браузере — дашборд обновится.</li>
+      <li><b>Сохраните и перегенерируйте:</b> <code>python3 generate.py</code></li>
+      <li><b>Откройте docs/index.html</b> в браузере — дашборд обновится.</li>
     </ol>
   </div>
   <div class="info-box">
     <h3>Вкладки</h3>
     <table>
       <tr><th style="text-align:left">Вкладка</th><th style="text-align:left">Назначение</th></tr>
-      <tr><td class="left"><b>Dashboard</b></td><td class="left">Матрица Сегмент × Инструмент — общий прогресс</td></tr>
+      <tr><td class="left"><b>Dashboard</b></td><td class="left">Матрица Сегмент x Инструмент — общий прогресс</td></tr>
       <tr><td class="left"><b>Timeline</b></td><td class="left">Этапы миграции с план/факт датами</td></tr>
-      <tr><td class="left"><b>Ганг</b></td><td class="left">Диаграмма Ганта по продуктам (5 категорий ПЗ)</td></tr>
+      <tr><td class="left"><b>Гант</b></td><td class="left">Диаграмма Ганта по продуктам (5 категорий ПЗ)</td></tr>
       <tr><td class="left"><b>Данные</b></td><td class="left">Полная таблица со всеми вычисленными полями</td></tr>
     </table>
   </div>
@@ -323,7 +323,7 @@ function renderDashboard() {
   const PROD_GRP = {
     'КК':'Незалоговые','КН':'Незалоговые','КЛ':'Незалоговые','КНР':'Незалоговые','КНО':'Незалоговые',
     'POS':'Незалоговые','BNPL':'Незалоговые','Долями+':'Незалоговые','Кубышка':'Незалоговые','Незалоги.Дабл':'Незалоговые',
-    'Авто':'Залоговые','Недвижимость':'Залоговые','КЛ':'Незалоговые','Залоги.Дабл':'Залоговые',
+    'Авто':'Залоговые','Недвижимость':'Залоговые','Залоги.Дабл':'Залоговые',
     'Умершие':'Спецсегменты','Банкроты':'Спецсегменты','Нерезиденты':'Спецсегменты','3P':'Спецсегменты','Инсталлмент':'Спецсегменты'
   };
   const nCols = instrs.length + 1;
@@ -343,7 +343,6 @@ function renderDashboard() {
       const all = allRows.filter(r => r.seg === seg && r.instr === instr);
       const active = all.filter(r => r.active);
       if (!active.length) {
-        // Inactive: show as grayed out, not counted in progress
         h += `<td style="background:#F0F0F0;color:#ccc;font-size:10px">—</td>`;
       } else {
         const tw = active.reduce((s, r) => s + r.weight, 0) || 1;
@@ -370,7 +369,7 @@ function renderTimeline() {
     + '<input type="checkbox" id="f-tl-detail" onchange="render()"> Детализация по подпродуктам</label></div>';
 
   if (detailed) {
-    // ── Detailed: one row per subproduct × instrument ──
+    // ── Detailed: one row per subproduct x instrument ──
     let detail = rows.map(r => ({...r}));
     if (hideInactive) detail = detail.filter(r => r.plans.some(Boolean) || r.facts.some(Boolean));
     detail.sort((a,b) => {
@@ -399,7 +398,7 @@ function renderTimeline() {
     h += '</tbody></table></div>';
 
   } else {
-    // ── Aggregated: segment × instrument ──
+    // ── Aggregated: segment x instrument ──
     const groups = {};
     rows.forEach(r => {
       const k = r.seg + '|' + r.instr;
@@ -456,11 +455,9 @@ function renderGantt() {
   const catColors = {'PRE':'#C00000','1':'#ED7D31','2':'#FFC000','3':'#70AD47','4':'#4472C4'};
 
   D.categories.forEach(cat => {
-    // Filter to current category (respect product filter too)
     const catRows = rows.filter(r => r.cat === cat);
     if (!catRows.length) return;
 
-    // Group by product
     const prods = {};
     catRows.forEach(r => {
       if (!prods[r.prod]) prods[r.prod] = [];
@@ -488,7 +485,6 @@ function renderGantt() {
     div.id = 'gantt-' + cat;
     container.appendChild(div);
 
-    // Month ticks
     const tv = [], tt = [];
     const mNames = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
     for (let y = 2026; y <= 2028; y++)
