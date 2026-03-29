@@ -18,7 +18,7 @@ from generate_roadmap import (parse_products, parse_instruments,
                                CATEGORIES, SUBSEGMENTS, ROADMAP_DIR)
 
 # 6-stage pipeline
-STAGES = [("Разработка", 0.01), ("Интеграционное тестирование", 0.05),
+STAGES = [("Разработка", 0.01), ("e2e", 0.05),
           ("1%", 0.20), ("5%", 0.40), ("50%", 0.75), ("100%", 1.00)]
 
 ENTRY_PATH = ROADMAP_DIR / "data_entry.xlsx"
@@ -520,7 +520,7 @@ td.left {{ text-align: left; }}
     <table>
       <tr><th style="text-align:left;width:200px">Этап</th><th style="text-align:left;width:80px">Вес</th><th style="text-align:left">Пояснение</th></tr>
       <tr><td class="left">Разработка</td><td>1%</td><td class="left">Разработка стартовала</td></tr>
-      <tr><td class="left">Интеграционное тестирование</td><td>5%</td><td class="left">Разработка завершена, ИТ стартовал</td></tr>
+      <tr><td class="left">e2e</td><td>5%</td><td class="left">Разработка завершена, ИТ стартовал</td></tr>
       <tr><td class="left">1% раскатка</td><td>20%</td><td class="left">Пилот на 1% трафика</td></tr>
       <tr><td class="left">5% раскатка</td><td>40%</td><td class="left">Расширение пилота</td></tr>
       <tr><td class="left">50% раскатка</td><td>75%</td><td class="left">Половина трафика на новой архитектуре</td></tr>
