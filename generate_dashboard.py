@@ -649,8 +649,14 @@ const PROD_ORDER = {{
   'Умершие':20,'Банкроты':21,'Нерезиденты':22,'3P':23,'Инсталлмент':24
 }};
 const CAT_ORDER = {{'PRE':0,'1':1,'2':2,'3':3,'4':4}};
+const INSTR_ORDER = {{
+  'Исход':0,'Вход':1,'Чаты':2,'СМС/PUSH':3,'Self-Service':4,'Мобильный банк':5,
+  'Бумажные письма':6,'АПД':7,'CarSearch':8,'Выезды реализации':9,
+  'Выезды Legal':10,'Модуль реструктуризации':11,'Реализация':12,'Автоплатежи':13
+}};
 function prodOrd(p) {{ return PROD_ORDER[p] ?? 50; }}
 function catOrd(c) {{ return CAT_ORDER[c] ?? 9; }}
+function instrOrd(i) {{ return INSTR_ORDER[i] ?? 50; }}
 function cmpProdCat(pA,cA,pB,cB) {{
   const dp = prodOrd(pA) - prodOrd(pB);
   return dp !== 0 ? dp : catOrd(cA) - catOrd(cB);
@@ -705,7 +711,7 @@ function renderDashboard() {{
     const [pA,cA] = a.split(' | '); const [pB,cB] = b.split(' | ');
     return cmpProdCat(pA,cA,pB,cB);
   }});
-  const instrs = [...new Set(allRows.map(r => r.instr))].sort();
+  const instrs = [...new Set(allRows.map(r => r.instr))].sort((a,b) => instrOrd(a) - instrOrd(b));
   if (hideInactive) {{
     segs = segs.filter(seg => allRows.some(r => r.seg === seg && r.active));
   }}
@@ -766,7 +772,7 @@ function renderTimeline() {{
       const pc = cmpProdCat(a.prod, a.cat, b.prod, b.cat);
       if (pc !== 0) return pc;
       if (a.subprod !== b.subprod) return a.subprod.localeCompare(b.subprod);
-      return a.instr.localeCompare(b.instr);
+      return instrOrd(a.instr) - instrOrd(b.instr);
     }});
 
     h += '<div style="overflow-x:auto"><table><thead><tr><th>Сегмент</th><th>Подпродукт</th><th>Подсегмент</th><th>Инструмент</th>';
@@ -797,7 +803,7 @@ function renderTimeline() {{
     }});
     let entries = Object.values(groups).sort((a,b) => {{
       const pc = cmpProdCat(a.prod, a.cat, b.prod, b.cat);
-      return pc !== 0 ? pc : a.instr.localeCompare(b.instr);
+      return pc !== 0 ? pc : instrOrd(a.instr) - instrOrd(b.instr);
     }});
     if (hideInactive) {{
       entries = entries.filter(g => g.items.some(r => r.plans.some(Boolean) || r.facts.some(Boolean)));
@@ -899,7 +905,7 @@ function renderGantt() {{
 
     const sorted = Object.entries(groups).sort((a,b) => {{
       const dp = prodOrd(a[1]._prod) - prodOrd(b[1]._prod);
-      return dp !== 0 ? dp : a[1]._instr.localeCompare(b[1]._instr);
+      return dp !== 0 ? dp : instrOrd(a[1]._instr) - instrOrd(b[1]._instr);
     }}).filter(([_,d]) => !d.plans.every(v => v === null));
     if (!sorted.length) return;
 
