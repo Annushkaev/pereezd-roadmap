@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Roadmap Переезд</title>
 <script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
 :root {
   --blue: #2F5496; --blue-l: #D6E4F0; --green: #70AD47; --green-l: #C6EFCE;
@@ -86,6 +87,21 @@ tr:hover { background: var(--blue-l); }
 .legend i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
 td.left { text-align: left; }
 .gantt-section { margin: 20px 0; }
+.ed-section { background: #fff; border: 1px solid var(--border); border-radius: 8px;
+              padding: 16px; margin-bottom: 12px; }
+.ed-section h4 { color: var(--blue); margin-bottom: 10px; font-size: 14px; }
+.ed-filters { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.ed-filters .dd { min-width: 160px; }
+.ed-actions { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; margin: 12px 0; }
+.ed-actions input[type=date] { padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; }
+.ed-actions select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; }
+.ed-btn { padding: 8px 20px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; }
+.ed-btn-primary { background: var(--blue); color: #fff; }
+.ed-btn-primary:hover { opacity: .9; }
+.ed-btn-success { background: var(--green); color: #fff; }
+.ed-btn-success:hover { opacity: .9; }
+.ed-count { font-size: 14px; font-weight: 600; color: var(--blue); padding: 8px 0; }
+.ed-preview { max-height: 400px; overflow: auto; }
 .info-tip { display: inline-block; width: 14px; height: 14px; line-height: 14px; text-align: center;
              border-radius: 50%; background: var(--border); color: var(--muted); font-size: 10px;
              cursor: help; vertical-align: middle; margin-left: 2px; position: relative; }
@@ -152,6 +168,7 @@ td.left { text-align: left; }
   <button class="tab-btn" data-tab="timeline" onclick="switchTab('timeline')">Timeline</button>
   <button class="tab-btn" data-tab="gantt" onclick="switchTab('gantt')">Гант</button>
   <button class="tab-btn" data-tab="data" onclick="switchTab('data')">Данные</button>
+  <button class="tab-btn" data-tab="editor" onclick="switchTab('editor')">Редактор</button>
   <button class="tab-btn" data-tab="help" onclick="switchTab('help')">Инструкция</button>
 </div>
 
@@ -171,6 +188,11 @@ td.left { text-align: left; }
   <div class="tab-controls" id="data-ctrl"></div>
   <div id="data-body"></div>
 </div>
+<div class="tab-content" id="tab-editor">
+  <div class="tab-controls" id="editor-ctrl"></div>
+  <div id="editor-body"></div>
+</div>
+
 <div class="tab-content" id="tab-help">
 
   <div class="info-box">
@@ -779,6 +801,7 @@ function render() {
   else if (tab === 'timeline') renderTimeline();
   else if (tab === 'gantt') renderGantt();
   else if (tab === 'data') renderData();
+  else if (tab === 'editor') edUpdatePreview();
 }
 
 // ── Init tab controls (once, never re-rendered) ──
@@ -812,6 +835,171 @@ function initTabControls() {
     + '</div>';
 
   // Data — no extra controls
+
+  // Editor — full inline editing UI
+  initEditor();
+}
+
+// ── Editor ──
+function initEditor() {
+  const ec = document.getElementById('editor-ctrl');
+  ec.innerHTML = '<span style="font-size:13px;color:var(--muted)">Массовое редактирование: выберите строки → установите значения → Применить → Скачать XLSX</span>';
+
+  const body = document.getElementById('editor-body');
+  const stageOpts = STAGES.map(s => `<option value="${s}">${s}</option>`).join('');
+
+  // Build unique subproducts list
+  const subprods = [...new Set(D.rows.map(r => r.subprod).filter(Boolean))].sort();
+
+  body.innerHTML = `
+  <div class="ed-section">
+    <h4>1. Выберите строки</h4>
+    <div class="ed-filters">
+      <div><label style="font-size:12px;color:var(--muted)">Продукт</label><br>
+        <div class="dd" id="dd-ed-prod"><button class="dd-btn" onclick="toggleDD('dd-ed-prod')">Все</button>
+        <div class="dd-list" id="ddl-ed-prod"></div></div></div>
+      <div><label style="font-size:12px;color:var(--muted)">Подпродукт</label><br>
+        <div class="dd" id="dd-ed-sub"><button class="dd-btn" onclick="toggleDD('dd-ed-sub')">Все</button>
+        <div class="dd-list" id="ddl-ed-sub"></div></div></div>
+      <div><label style="font-size:12px;color:var(--muted)">Категория ПЗ</label><br>
+        <div class="dd" id="dd-ed-cat"><button class="dd-btn" onclick="toggleDD('dd-ed-cat')">Все</button>
+        <div class="dd-list" id="ddl-ed-cat"></div></div></div>
+      <div><label style="font-size:12px;color:var(--muted)">Инструмент</label><br>
+        <div class="dd" id="dd-ed-instr"><button class="dd-btn" onclick="toggleDD('dd-ed-instr')">Все</button>
+        <div class="dd-list" id="ddl-ed-instr"></div></div></div>
+    </div>
+    <div class="ed-count" id="ed-count">Выбрано: 0 строк</div>
+  </div>
+
+  <div class="ed-section">
+    <h4>2. Установить Активен</h4>
+    <div class="ed-actions">
+      <select id="ed-active-val"><option value="">—</option><option value="Да">Да</option><option value="Нет">Нет</option></select>
+      <button class="ed-btn ed-btn-primary" onclick="edApplyActive()">Применить Активен</button>
+    </div>
+  </div>
+
+  <div class="ed-section">
+    <h4>3. Установить даты этапа</h4>
+    <div class="ed-actions">
+      <div><label style="font-size:12px;color:var(--muted)">Этап</label><br>
+        <select id="ed-stage">${stageOpts}</select></div>
+      <div><label style="font-size:12px;color:var(--muted)">План</label><br>
+        <input type="date" id="ed-plan"></div>
+      <div><label style="font-size:12px;color:var(--muted)">Факт</label><br>
+        <input type="date" id="ed-fact"></div>
+      <button class="ed-btn ed-btn-primary" onclick="edApplyDates()">Применить даты</button>
+    </div>
+  </div>
+
+  <div class="ed-section">
+    <h4>4. Скачать результат</h4>
+    <div class="ed-actions">
+      <button class="ed-btn ed-btn-success" onclick="edDownload()">⬇ Скачать data_entry.xlsx</button>
+      <span style="font-size:12px;color:var(--muted)">Замените файл в репозитории и запустите generate.py</span>
+    </div>
+  </div>
+
+  <div class="ed-section">
+    <h4>Предпросмотр выбранных строк</h4>
+    <div class="ed-preview" id="ed-preview"></div>
+  </div>`;
+
+  // Build editor dropdowns
+  buildDD('ddl-ed-prod', D.products, (a,b) => prodOrd(a) - prodOrd(b));
+  buildDD('ddl-ed-sub', subprods);
+  buildDD('ddl-ed-cat', D.categories);
+  buildDD('ddl-ed-instr', D.instruments);
+
+  // Hook onchange to update preview
+  document.querySelectorAll('#tab-editor .dd-list input').forEach(cb => {
+    const orig = cb.onchange;
+    cb.onchange = () => { if(orig) orig(); updateDDBtn(cb.closest('.dd-list').id); edUpdatePreview(); };
+  });
+}
+
+function edGetSelected() {
+  const fp = getDDValues('ddl-ed-prod');
+  const fs = getDDValues('ddl-ed-sub');
+  const fc = getDDValues('ddl-ed-cat');
+  const fi = getDDValues('ddl-ed-instr');
+  return D.rows.filter(r => {
+    if (fp.length && !fp.includes(r.prod)) return false;
+    if (fs.length && !fs.includes(r.subprod)) return false;
+    if (fc.length && !fc.includes(r.cat)) return false;
+    if (fi.length && !fi.includes(r.instr)) return false;
+    return true;
+  });
+}
+
+function edUpdatePreview() {
+  const sel = edGetSelected();
+  document.getElementById('ed-count').textContent = `Выбрано: ${sel.length} строк`;
+  const preview = document.getElementById('ed-preview');
+  if (!sel.length) { preview.innerHTML = '<p style="color:var(--muted)">Выберите фильтры выше</p>'; return; }
+  const show = sel.slice(0, 100);
+  let h = '<table><thead><tr><th>Продукт</th><th>Подпродукт</th><th>Кат.</th><th>Инструмент</th><th>Активен</th>';
+  STAGES.forEach(s => h += `<th>${s} п</th><th>${s} ф</th>`);
+  h += '</tr></thead><tbody>';
+  show.forEach(r => {
+    h += `<tr><td class="left">${r.prod}</td><td class="left">${r.subprod}</td><td>${r.cat}</td><td>${r.instr}</td>`;
+    h += `<td style="font-weight:600;color:${r.active?'var(--green)':'var(--muted)'}">${r.active?'Да':'Нет'}</td>`;
+    for (let i = 0; i < STAGES.length; i++) {
+      h += `<td class="plan-cell">${fmtDate(r.plans[i])}</td>`;
+      h += `<td class="${r.facts[i]?'fact-done':''}">${fmtDate(r.facts[i])}</td>`;
+    }
+    h += '</tr>';
+  });
+  h += '</tbody></table>';
+  if (sel.length > 100) h += `<p style="color:var(--muted)">...и ещё ${sel.length - 100} строк</p>`;
+  preview.innerHTML = h;
+}
+
+function edApplyActive() {
+  const val = document.getElementById('ed-active-val').value;
+  if (!val) { alert('Выберите Да или Нет'); return; }
+  const sel = edGetSelected();
+  if (!sel.length) { alert('Выберите строки'); return; }
+  const isActive = val === 'Да';
+  sel.forEach(r => r.active = isActive);
+  edUpdatePreview();
+  render();
+  alert(`Активен = ${val} установлен для ${sel.length} строк`);
+}
+
+function edApplyDates() {
+  const stageIdx = STAGES.indexOf(document.getElementById('ed-stage').value);
+  const planVal = document.getElementById('ed-plan').value || null;
+  const factVal = document.getElementById('ed-fact').value || null;
+  if (stageIdx < 0) { alert('Выберите этап'); return; }
+  if (!planVal && !factVal) { alert('Введите хотя бы одну дату'); return; }
+  const sel = edGetSelected();
+  if (!sel.length) { alert('Выберите строки'); return; }
+  sel.forEach(r => {
+    if (planVal) r.plans[stageIdx] = planVal;
+    if (factVal) r.facts[stageIdx] = factVal;
+  });
+  edUpdatePreview();
+  render();
+  alert(`Даты этапа "${STAGES[stageIdx]}" обновлены для ${sel.length} строк`);
+}
+
+function edDownload() {
+  // Build worksheet data
+  const headers = ["Агрегация", "Продукт", "Подпродукт", "Подсегмент", "Категория ПЗ", "Группа инструмента", "Инструмент", "Активен", "Старт разработки план", "Интеграционное тестирование план", "1% план", "5% план", "50% план", "100% план", "Старт разработки факт", "Интеграционное тестирование факт", "1% факт", "5% факт", "50% факт", "100% факт", "Старт разработки baseline", "Интеграционное тестирование baseline", "1% baseline", "5% baseline", "50% baseline", "100% baseline", "Эпики", "Комментарии"];
+  const wsData = [headers];
+  D.rows.forEach(r => {
+    const row = [r.agg, r.prod, r.subprod, r.subseg||'', r.cat, r.igrp, r.instr, r.active ? 'Да' : 'Нет'];
+    STAGES.forEach((_, i) => row.push(r.plans[i] || ''));
+    STAGES.forEach((_, i) => row.push(r.facts[i] || ''));
+    STAGES.forEach(() => row.push(''));  // baseline empty
+    row.push(r.epics || '', r.comment || '');
+    wsData.push(row);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'DATA');
+  XLSX.writeFile(wb, 'data_entry.xlsx');
 }
 
 initFilters();
