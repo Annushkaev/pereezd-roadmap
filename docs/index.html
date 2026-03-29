@@ -172,41 +172,91 @@ td.left { text-align: left; }
   <div id="data-body"></div>
 </div>
 <div class="tab-content" id="tab-help">
+
   <div class="info-box">
-    <h3>Рабочий процесс</h3>
+    <h3>Описание вкладок</h3>
+    <table>
+      <tr><th style="text-align:left;width:120px">Вкладка</th><th style="text-align:left">Что показывает</th><th style="text-align:left">Когда использовать</th></tr>
+      <tr><td class="left"><b>Dashboard</b></td>
+        <td class="left">Матрица «Сегмент × Инструмент». Каждая ячейка — средневзвешенный прогресс по подпродуктам. Серые ячейки «—» = комбинация не предусмотрена (Активен = Нет).</td>
+        <td class="left">Общая картина: где идёт работа, где пробелы. Статус-митинг.</td></tr>
+      <tr><td class="left"><b>Timeline</b></td>
+        <td class="left">Таблица с план/факт датами по каждому из 6 этапов. Агрегация по сегменту × инструменту, с переключателем на детализацию по подпродуктам.</td>
+        <td class="left">Контроль конкретных сроков. Поиск просроченных этапов.</td></tr>
+      <tr><td class="left"><b>Гант</b></td>
+        <td class="left">Горизонтальная диаграмма Ганта. Каждый этап — свой цвет. Три режима: план, факт, сравнение. Детализация по продукту или подпродукту. Красная линия = сегодня.</td>
+        <td class="left">Визуальный обзор таймлайна. Презентации, отчёты руководству.</td></tr>
+      <tr><td class="left"><b>Данные</b></td>
+        <td class="left">Полная таблица: все активные строки со всеми вычисленными полями (этап, прогресс, RAG, сдвиг, даты). Горизонтальная прокрутка.</td>
+        <td class="left">Детальный анализ, поиск конкретных комбинаций, экспорт.</td></tr>
+    </table>
+  </div>
+
+  <div class="info-box">
+    <h3>RAG-статусы</h3>
+    <p style="margin-bottom:12px">RAG определяется для каждой строки (подпродукт × категория ПЗ × инструмент) путём сравнения <b>ближайшего незакрытого планового этапа</b> с <b>сегодняшней датой</b>.</p>
+    <table>
+      <tr><th style="text-align:left;width:90px">Статус</th><th style="text-align:left">Условие</th><th style="text-align:left">Что означает</th></tr>
+      <tr><td><span style="background:var(--green-l);padding:2px 8px;border-radius:3px;font-weight:700;color:#2E7D32">GREEN</span></td>
+        <td class="left">Плановая дата ближайшего этапа ≥ сегодня (сдвиг ≤ 0 дней)</td>
+        <td class="left">Всё идёт по плану, сроки не нарушены.</td></tr>
+      <tr><td><span style="background:var(--amber-l);padding:2px 8px;border-radius:3px;font-weight:700;color:#8B6914">AMBER</span></td>
+        <td class="left">Плановая дата просрочена на 1–14 дней</td>
+        <td class="left">Небольшая задержка. Нужно внимание — возможно, требуется эскалация.</td></tr>
+      <tr><td><span style="background:var(--red-l);padding:2px 8px;border-radius:3px;font-weight:700;color:var(--red)">RED</span></td>
+        <td class="left">Плановая дата просрочена более чем на 14 дней</td>
+        <td class="left">Критическая задержка. Требуется вмешательство и корректировка сроков.</td></tr>
+      <tr><td><span style="background:#BDD7EE;padding:2px 8px;border-radius:3px;font-weight:700;color:var(--blue)">DONE</span></td>
+        <td class="left">Фактическая дата последнего этапа (100%) заполнена</td>
+        <td class="left">Миграция этой комбинации полностью завершена.</td></tr>
+      <tr><td><span style="padding:2px 8px;border-radius:3px;color:var(--muted)">—</span></td>
+        <td class="left">Нет плановых дат ни на одном этапе</td>
+        <td class="left">Даты ещё не заведены. Строка не участвует в расчёте прогресса.</td></tr>
+    </table>
+  </div>
+
+  <div class="info-box">
+    <h3>Как считается прогресс</h3>
+    <table>
+      <tr><th style="text-align:left;width:200px">Этап</th><th style="text-align:left;width:80px">Вес</th><th style="text-align:left">Пояснение</th></tr>
+      <tr><td class="left">Старт разработки</td><td>5%</td><td class="left">Разработка начата</td></tr>
+      <tr><td class="left">Интеграционное тестирование</td><td>10%</td><td class="left">e2e-тесты запущены</td></tr>
+      <tr><td class="left">1% раскатка</td><td>20%</td><td class="left">Пилот на 1% трафика</td></tr>
+      <tr><td class="left">5% раскатка</td><td>40%</td><td class="left">Расширение пилота</td></tr>
+      <tr><td class="left">50% раскатка</td><td>75%</td><td class="left">Половина трафика на новой архитектуре</td></tr>
+      <tr><td class="left">100% раскатка</td><td>100%</td><td class="left">Полная миграция завершена</td></tr>
+    </table>
+    <p style="margin-top:12px"><b>Прогресс строки</b> = вес последнего завершённого этапа (у которого заполнена фактическая дата). Если ни один этап не завершён — 0%.</p>
+    <p><b>Прогресс сегмента</b> (на Dashboard/Timeline) = средневзвешенное по весам подпродуктов. Веса берутся из справочника продуктов (source/Продукты+для+переезда.doc).</p>
+    <p><b>Общий прогресс</b> (KPI-карточка) = средневзвешенное по всем активным строкам с учётом фильтров.</p>
+  </div>
+
+  <div class="info-box">
+    <h3>Особенности подсчётов</h3>
+    <ul style="padding-left:20px">
+      <li><b>Неактивные строки</b> (Активен = Нет) не участвуют в расчёте прогресса и RAG. Они отображаются серым «—» на Dashboard.</li>
+      <li><b>Строки без плановых дат</b> — RAG = «—», не влияют на KPI RED/AMBER/GREEN.</li>
+      <li><b>Агрегация на Timeline</b> — план = самая ранняя дата среди подпродуктов (MIN), факт = самая поздняя (MAX). Этап считается закрытым на уровне сегмента только когда ВСЕ подпродукты его завершили.</li>
+      <li><b>RAG на Timeline</b> — берётся наихудший статус среди подпродуктов: RED &gt; AMBER &gt; GREEN. DONE только если все подпродукты = DONE.</li>
+      <li><b>Гант (факт)</b> — если этап завершён, но следующий ещё не начат, бар текущего этапа тянется до сегодняшней даты (идёт работа).</li>
+      <li><b>Подсегменты</b> — КК Обычная делится на «до 200к» и «свыше 200к» (вес 50/50). Остальные продукты без подсегментов.</li>
+      <li><b>Фильтры</b> — применяются ко всем вкладкам одновременно. Если ничего не выбрано — показываются все. Выбор нескольких = логическое ИЛИ внутри фильтра.</li>
+    </ul>
+  </div>
+
+  <div class="info-box">
+    <h3>Как обновлять данные</h3>
     <ol>
       <li><b>Откройте data_entry.xlsx</b> в Excel — файл без формул, открывается мгновенно.</li>
       <li><b>Активируйте комбинации:</b> в столбце H (Активен) выберите «Да» из выпадающего списка.</li>
-      <li><b>Введите плановые даты</b> этапов (голубые столбцы: ИТ план … 100% план).</li>
-      <li><b>Обновляйте фактические даты</b> по мере прогресса (зелёные столбцы).</li>
-      <li><b>Сохраните и перегенерируйте:</b> <code>python3 generate_dashboard.py</code></li>
-      <li><b>Откройте Roadmap_Переезд.html</b> в браузере — дашборд обновится.</li>
+      <li><b>Введите плановые даты</b> (голубые столбцы) и фактические (зелёные столбцы).</li>
+      <li><b>Сохраните</b> файл и запустите <code>python3 generate.py</code></li>
+      <li><b>Закоммитьте:</b> <code>git add -A &amp;&amp; git commit -m "Обновление" &amp;&amp; git push</code></li>
+      <li>Через ~1 минуту дашборд обновится на GitHub Pages.</li>
     </ol>
+    <p style="margin-top:8px;color:var(--muted);font-size:12px">Если настроен GitHub Actions — достаточно загрузить data_entry.xlsx через интерфейс GitHub, HTML перегенерируется автоматически.</p>
   </div>
-  <div class="info-box">
-    <h3>Вкладки</h3>
-    <table>
-      <tr><th style="text-align:left">Вкладка</th><th style="text-align:left">Назначение</th></tr>
-      <tr><td class="left"><b>Dashboard</b></td><td class="left">Матрица Сегмент × Инструмент — общий прогресс</td></tr>
-      <tr><td class="left"><b>Timeline</b></td><td class="left">Этапы миграции с план/факт датами</td></tr>
-      <tr><td class="left"><b>Гант</b></td><td class="left">Диаграмма Ганта по продуктам (5 категорий ПЗ)</td></tr>
-      <tr><td class="left"><b>Данные</b></td><td class="left">Полная таблица со всеми вычисленными полями</td></tr>
-    </table>
-  </div>
-  <div class="info-box">
-    <h3>RAG-статус</h3>
-    <div class="legend">
-      <span><i style="background:var(--green-l)"></i> GREEN — в плане</span>
-      <span><i style="background:var(--amber-l)"></i> AMBER — сдвиг 1-14 дней</span>
-      <span><i style="background:var(--red-l)"></i> RED — сдвиг &gt;14 дней</span>
-      <span><i style="background:#BDD7EE"></i> DONE — 100% завершено</span>
-    </div>
-  </div>
-  <div class="info-box">
-    <h3>Перепланирование</h3>
-    <p>Перед изменением плановых дат скопируйте текущие планы в столбцы baseline.
-       Столбец «Сдвиг» покажет разницу с базелайном. Без базелайна RAG = «—».</p>
-  </div>
+
 </div>
 </div><!-- /app-content -->
 
