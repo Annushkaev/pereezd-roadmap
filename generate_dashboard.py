@@ -149,7 +149,9 @@ def compute(rows, products):
         by_prod.setdefault(p["prod"], []).append(k)
     # Manual weight overrides
     WEIGHT_OVERRIDE = {
+        "КК|КК|Обычная (все грейсы)": 0.97,
         "КК|КК|Пастила": 0.005,
+        "КК|КК|РБ": 0.01,
         "КК|КК|Секьюритизация": 0.025,
     }
     for k, ow in WEIGHT_OVERRIDE.items():
