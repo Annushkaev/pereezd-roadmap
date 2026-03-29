@@ -149,7 +149,7 @@ def compute(rows, products):
         by_prod.setdefault(p["prod"], []).append(k)
     # Manual weight overrides
     WEIGHT_OVERRIDE = {
-        "КК|КК|Обычная (все грейсы)": 0.97,
+        "КК|КК|Обычная (все грейсы)": 0.96,
         "КК|КК|Пастила": 0.005,
         "КК|КК|РБ": 0.01,
         "КК|КК|Секьюритизация": 0.025,
@@ -157,9 +157,14 @@ def compute(rows, products):
     for k, ow in WEIGHT_OVERRIDE.items():
         if k in raw_w: raw_w[k] = ow
     zero_prods = {prod for prod, keys in by_prod.items() if all(raw_w[k] == 0 for k in keys)}
+    # For zero-weight products: equal share = 1/N subproducts, scaled to ~same magnitude as real weights
     prod_w = {}
     for k, w in raw_w.items():
-        prod_w[k] = 1.0 if w == 0 and k.split("|")[1] in zero_prods else w
+        if w == 0 and k.split("|")[1] in zero_prods:
+            n = len(by_prod[k.split("|")[1]])
+            prod_w[k] = 1.0 / n  # equal share, sums to 1.0 per product
+        else:
+            prod_w[k] = w
     subseg_w = {f"{sp}|{sn}": sw for sp, segs in SUBSEGMENTS for sn, sw in segs}
 
     out = []
