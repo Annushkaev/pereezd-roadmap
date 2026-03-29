@@ -777,9 +777,9 @@ function renderDashboard() {{
       }} else {{
         const tw = active.reduce((s, r) => s + r.weight, 0) || 1;
         const p = active.reduce((s, r) => s + r.weight * (r.progress || 0), 0) / tw;
-        const pct = Math.round(p * 100);
+        const pct = (p * 100).toFixed(1);
         if (p >= 1.0) {{
-          h += `<td class="mx-done">${{pct}}%</td>`;
+          h += `<td class="mx-done">100%</td>`;
         }} else if (p > 0) {{
           h += `<td class="mx-prog">${{pct}}%</td>`;
         }} else {{
