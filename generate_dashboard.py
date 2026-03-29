@@ -248,9 +248,8 @@ def compute(rows, products):
 
 def generate_html(data):
     active = [r for r in data if r["active"]]
-    # KPIs
-    total_w = sum(r["weight"] for r in active) or 1
-    progress = sum(r["weight"] * r["progress"] for r in active) / total_w
+    # KPIs — equal weight per active row
+    progress = sum(r["progress"] for r in active) / len(active) if active else 0
     n_red = sum(1 for r in active if r["rag"] == "RED")
     n_done = sum(1 for r in active if r["rag"] == "DONE")
     n_active = len(active)
@@ -736,12 +735,11 @@ function dateToDays(s) {{
 // ── KPIs ──
 function renderKPIs() {{
   const rows = getFiltered();
-  const tw = rows.reduce((s, r) => s + r.weight, 0) || 1;
-  const prog = rows.reduce((s, r) => s + r.weight * r.progress, 0) / tw;
+  const prog = rows.length ? rows.reduce((s, r) => s + (r.progress || 0), 0) / rows.length : 0;
   const red = rows.filter(r => r.rag === 'RED').length;
   const done = rows.filter(r => r.rag === 'DONE').length;
   document.getElementById('kpis').innerHTML = `
-    <div class="kpi"><div class="val">${{fmtPct(prog)}}</div><div class="lbl">Прогресс <span class="info-tip" title="Средневзвешенный прогресс по весам продуктов. Вес этапов: Разработка 1%, ИТ 5%, 1%→20%, 5%→40%, 50%→75%, 100%→100%">ⓘ</span></div></div>
+    <div class="kpi"><div class="val">${{fmtPct(prog)}}</div><div class="lbl">Прогресс <span class="info-tip" title="Среднее арифметическое прогресса по всем активным строкам (равные веса). Этапы: Разработка 1%, e2e 5%, 1%→20%, 5%→40%, 50%→75%, 100%→100%">ⓘ</span></div></div>
     <div class="kpi"><div class="val">${{rows.length}}</div><div class="lbl">Активных <span class="info-tip" title="Количество строк с Активен=Да, прошедших через текущие фильтры">ⓘ</span></div></div>
     <div class="kpi red"><div class="val">${{red}}</div><div class="lbl">RED <span class="info-tip" title="Ближайший плановый этап просрочен более чем на 14 дней (план vs сегодня)">ⓘ</span></div></div>
     <div class="kpi green"><div class="val">${{done}}</div><div class="lbl">DONE <span class="info-tip" title="Все 6 этапов завершены — фактическая дата 100% заполнена">ⓘ</span></div></div>
