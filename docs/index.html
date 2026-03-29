@@ -86,6 +86,11 @@ tr:hover { background: var(--blue-l); }
 .legend i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
 td.left { text-align: left; }
 .gantt-section { margin: 20px 0; }
+.tab-controls { display: flex; align-items: center; gap: 16px; padding: 8px 0 12px;
+                 border-bottom: 1px solid var(--border); margin-bottom: 12px; flex-wrap: wrap; }
+.tab-controls:empty { display: none; }
+.tab-controls label { font-size: 13px; cursor: pointer; }
+.tab-controls select { padding: 5px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; }
 @media (max-width: 768px) {
   .kpi-strip { gap: 8px; padding: 8px; }
   .kpi { min-width: 80px; padding: 8px; }
@@ -147,10 +152,22 @@ td.left { text-align: left; }
   <button class="tab-btn" data-tab="help" onclick="switchTab('help')">Инструкция</button>
 </div>
 
-<div class="tab-content active" id="tab-dashboard"></div>
-<div class="tab-content" id="tab-timeline"></div>
-<div class="tab-content" id="tab-gantt"></div>
-<div class="tab-content" id="tab-data"></div>
+<div class="tab-content active" id="tab-dashboard">
+  <div class="tab-controls" id="dash-ctrl"></div>
+  <div id="dash-body"></div>
+</div>
+<div class="tab-content" id="tab-timeline">
+  <div class="tab-controls" id="tl-ctrl"></div>
+  <div id="tl-body"></div>
+</div>
+<div class="tab-content" id="tab-gantt">
+  <div class="tab-controls" id="gantt-ctrl"></div>
+  <div id="gantt-body"></div>
+</div>
+<div class="tab-content" id="tab-data">
+  <div class="tab-controls" id="data-ctrl"></div>
+  <div id="data-body"></div>
+</div>
 <div class="tab-content" id="tab-help">
   <div class="info-box">
     <h3>Рабочий процесс</h3>
@@ -362,10 +379,8 @@ function renderDashboard() {
   if (hideInactive) {
     segs = segs.filter(seg => allRows.some(r => r.seg === seg && r.active));
   }
-  if (!segs.length) { document.getElementById('tab-dashboard').innerHTML = '<p>Нет данных</p>'; return; }
-  let h = '<div class="legend" style="margin-bottom:8px"><span><i style="background:rgba(47,84,150,0.15)"></i> Активно (0%)</span>'
-    + '<span><i style="background:rgba(47,84,150,0.7)"></i> Активно (прогресс)</span>'
-    + '<span><i style="background:#F0F0F0;border:1px solid #ddd"></i> Не предусмотрено</span></div>';
+  if (!segs.length) { document.getElementById('dash-body').innerHTML = '<p>Нет данных</p>'; return; }
+  let h = '';
   const PROD_GRP = {
     'КК':'Незалоговые','КН':'Незалоговые','КЛ':'Незалоговые','КНР':'Незалоговые','КНО':'Незалоговые',
     'POS':'Незалоговые','BNPL':'Незалоговые','Долями+':'Незалоговые','Кубышка':'Незалоговые','Незалоги.Дабл':'Незалоговые',
@@ -403,18 +418,15 @@ function renderDashboard() {
     h += '</tr>';
   });
   h += '</tbody></table></div>';
-  document.getElementById('tab-dashboard').innerHTML = h;
+  document.getElementById('dash-body').innerHTML = h;
 }
 
 // ── Timeline ──
 function renderTimeline() {
   const rows = getFiltered();
   const hideInactive = document.getElementById('f-hide-inactive').checked;
-  const prev = document.getElementById('f-tl-detail');
-  const detailed = prev ? prev.checked : false;
-
-  let h = '<div style="margin-bottom:8px"><label style="font-size:13px;cursor:pointer">'
-    + `<input type="checkbox" id="f-tl-detail" onchange="render()" ${detailed ? 'checked' : ''}> Детализация по подпродуктам</label></div>`;
+  const detailed = document.getElementById('f-tl-detail').checked;
+  let h = '';
 
   if (detailed) {
     // ── Detailed: one row per subproduct × instrument ──
@@ -492,7 +504,7 @@ function renderTimeline() {
     });
     h += '</tbody></table>';
   }
-  document.getElementById('tab-timeline').innerHTML = h;
+  document.getElementById('tl-body').innerHTML = h;
 }
 
 // ── Gantt ──
@@ -519,29 +531,10 @@ function ganttStageDurs(dates) {
 
 function renderGantt() {
   const rows = getFiltered();
-  const container = document.getElementById('tab-gantt');
-  const mode = (document.getElementById('gantt-mode') || {}).value || 'compare';
-  const level = (document.getElementById('gantt-level') || {}).value || 'product';
-  const selStyle = 'padding:5px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px';
-
-  let header = '<div style="margin-bottom:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">'
-    + '<div><label style="font-size:12px;color:var(--muted)">Режим</label><br>'
-    + `<select id="gantt-mode" onchange="render()" style="${selStyle}">`
-    + `<option value="compare" ${mode==='compare'?'selected':''}>Сравнение план/факт</option>`
-    + `<option value="plan" ${mode==='plan'?'selected':''}>Только план</option>`
-    + `<option value="fact" ${mode==='fact'?'selected':''}>Только факт</option>`
-    + '</select></div>'
-    + '<div><label style="font-size:12px;color:var(--muted)">Детализация</label><br>'
-    + `<select id="gantt-level" onchange="render()" style="${selStyle}">`
-    + `<option value="product" ${level==='product'?'selected':''}>По продукту</option>`
-    + `<option value="subproduct" ${level==='subproduct'?'selected':''}>По подпродукту</option>`
-    + '</select></div>'
-    + '<div class="legend" style="margin:0">';
-  STAGES.forEach((s,i) => {
-    header += `<span><i style="background:${STAGE_COLORS[i]}"></i> ${s}</span>`;
-  });
-  header += '</div></div>';
-  container.innerHTML = header;
+  const container = document.getElementById('gantt-body');
+  const mode = document.getElementById('gantt-mode').value;
+  const level = document.getElementById('gantt-level').value;
+  container.innerHTML = '';
 
   D.categories.forEach(cat => {
     const catRows = rows.filter(r => r.cat === cat);
@@ -677,8 +670,8 @@ function renderGantt() {
     }, { responsive:true });
   });
 
-  if (container.querySelectorAll('.gantt-section').length === 0) {
-    container.innerHTML += '<p>Нет данных для Ганта (нет плановых дат)</p>';
+  if (!container.querySelectorAll('.gantt-section').length) {
+    container.innerHTML = '<p>Нет данных для Ганта (нет плановых дат)</p>';
   }
 }
 
@@ -709,7 +702,7 @@ function renderData() {
     h += `<td class="left">${r.epics||''}</td><td class="left">${r.comment||''}</td></tr>`;
   });
   h += '</tbody></table></div>';
-  document.getElementById('tab-data').innerHTML = h;
+  document.getElementById('data-body').innerHTML = h;
 }
 
 // ── Render all ──
@@ -723,7 +716,39 @@ function render() {
   else if (tab === 'data') renderData();
 }
 
+// ── Init tab controls (once, never re-rendered) ──
+function initTabControls() {
+  const selStyle = 'padding:5px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px';
+  // Dashboard
+  document.getElementById('dash-ctrl').innerHTML =
+    '<div class="legend" style="margin:0"><span><i style="background:rgba(47,84,150,0.15)"></i> Активно (0%)</span>'
+    + '<span><i style="background:rgba(47,84,150,0.7)"></i> Активно (прогресс)</span>'
+    + '<span><i style="background:#F0F0F0;border:1px solid #ddd"></i> Не предусмотрено</span></div>';
+
+  // Timeline
+  document.getElementById('tl-ctrl').innerHTML =
+    '<label><input type="checkbox" id="f-tl-detail" onchange="render()"> Детализация по подпродуктам</label>';
+
+  // Gantt
+  document.getElementById('gantt-ctrl').innerHTML =
+    '<div><label style="font-size:12px;color:var(--muted)">Режим</label><br>'
+    + `<select id="gantt-mode" onchange="render()" style="${selStyle}">`
+    + '<option value="compare">Сравнение план/факт</option>'
+    + '<option value="plan">Только план</option>'
+    + '<option value="fact">Только факт</option></select></div>'
+    + '<div><label style="font-size:12px;color:var(--muted)">Детализация</label><br>'
+    + `<select id="gantt-level" onchange="render()" style="${selStyle}">`
+    + '<option value="product">По продукту</option>'
+    + '<option value="subproduct">По подпродукту</option></select></div>'
+    + '<div class="legend" style="margin:0">'
+    + STAGES.map((s,i) => `<span><i style="background:${STAGE_COLORS[i]}"></i> ${s}</span>`).join('')
+    + '</div>';
+
+  // Data — no extra controls
+}
+
 initFilters();
+initTabControls();
 render();
 </script>
 </body>
