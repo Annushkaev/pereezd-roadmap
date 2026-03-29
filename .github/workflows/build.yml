@@ -1,0 +1,31 @@
+name: Build Dashboard
+
+  on:
+    push:
+      paths:
+        - 'data_entry.xlsx'
+        - 'generate.py'
+        - 'source/**'
+
+  jobs:
+    build:
+      runs-on: ubuntu-latest
+      permissions:
+        contents: write
+      steps:
+        - uses: actions/checkout@v4
+
+        - uses: actions/setup-python@v5
+          with:
+            python-version: '3.12'
+
+        - run: pip install openpyxl
+
+        - run: python3 generate.py
+
+        - run: |
+            git config user.name "github-actions"
+            git config user.email "actions@github.com"
+            git add docs/index.html
+            git diff --cached --quiet || git commit -m "Auto-update dashboard"
+            git push
