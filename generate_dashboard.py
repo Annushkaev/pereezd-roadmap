@@ -1130,6 +1130,7 @@ function initEditor() {{
       <div><label style="font-size:12px;color:var(--muted)">Факт</label><br>
         <input type="date" id="ed-fact"></div>
       <button class="ed-btn ed-btn-primary" onclick="edApplyDates()">Применить даты</button>
+      <button class="ed-btn" style="background:var(--red-l);color:var(--red)" onclick="edClearDates()">✕ Удалить даты</button>
     </div>
   </div>
 
@@ -1278,6 +1279,24 @@ function edApplyDates() {{
   edUpdatePreview();
   render();
   alert(`Даты этапа "${{STAGES[stageIdx]}}" обновлены для ${{sel.length}} строк`);
+}}
+
+function edClearDates() {{
+  const stageIdx = STAGES.indexOf(document.getElementById('ed-stage').value);
+  if (stageIdx < 0) {{ alert('Выберите этап'); return; }}
+  const sel = edGetSelected();
+  if (!sel.length) {{ alert('Выберите строки'); return; }}
+  const clearPlan = confirm('Удалить плановые даты?');
+  const clearFact = confirm('Удалить фактические даты?');
+  if (!clearPlan && !clearFact) return;
+  sel.forEach(r => {{
+    if (clearPlan) r.plans[stageIdx] = null;
+    if (clearFact) r.facts[stageIdx] = null;
+  }});
+  edUpdatePreview();
+  render();
+  const what = [clearPlan && 'план', clearFact && 'факт'].filter(Boolean).join(' + ');
+  alert(`Удалены даты (${{what}}) этапа "${{STAGES[stageIdx]}}" для ${{sel.length}} строк`);
 }}
 
 function edBuildXLSX() {{
