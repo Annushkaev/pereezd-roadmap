@@ -349,6 +349,7 @@ function renderDashboard() {
 // ── Timeline ──
 function renderTimeline() {
   const rows = getFiltered();
+  const hideInactive = document.getElementById('f-hide-inactive').checked;
   // Aggregate by segment × instrument
   const groups = {};
   rows.forEach(r => {
@@ -356,10 +357,13 @@ function renderTimeline() {
     if (!groups[k]) groups[k] = { seg: r.seg, prod: r.prod, cat: r.cat, instr: r.instr, items: [] };
     groups[k].items.push(r);
   });
-  const entries = Object.values(groups).sort((a,b) => {
+  let entries = Object.values(groups).sort((a,b) => {
     const pc = cmpProdCat(a.prod, a.cat, b.prod, b.cat);
     return pc !== 0 ? pc : a.instr.localeCompare(b.instr);
   });
+  if (hideInactive) {
+    entries = entries.filter(g => g.items.some(r => r.plans.some(Boolean) || r.facts.some(Boolean)));
+  }
 
   let h = '<table><thead><tr><th>Сегмент</th><th>Инструмент</th>';
   STAGES.forEach(s => h += `<th colspan="2" class="stage-grp">${s}</th>`);
