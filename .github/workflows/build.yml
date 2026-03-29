@@ -5,7 +5,13 @@ on:
     paths:  
       - 'data_entry.xlsx'  
       - 'generate.py'  
+      - 'generate_dashboard.py'  
+      - 'generate_roadmap.py'  
       - 'source/**'  
+
+concurrency:  
+  group: pages  
+  cancel-in-progress: true  
 
 jobs:  
   build:  
