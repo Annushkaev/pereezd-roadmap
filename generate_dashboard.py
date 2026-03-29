@@ -18,7 +18,7 @@ from generate_roadmap import (parse_products, parse_instruments,
                                CATEGORIES, SUBSEGMENTS, ROADMAP_DIR)
 
 # 6-stage pipeline
-STAGES = [("Разработка", 0.05), ("Интеграционное тестирование", 0.10),
+STAGES = [("Разработка", 0.01), ("Интеграционное тестирование", 0.05),
           ("1%", 0.20), ("5%", 0.40), ("50%", 0.75), ("100%", 1.00)]
 
 ENTRY_PATH = ROADMAP_DIR / "data_entry.xlsx"
@@ -175,21 +175,17 @@ def compute(rows, products):
         r["plans"] = [_d2iso(d) for d in plans]
         r["facts"] = [_d2iso(d) for d in facts]
 
-        # Stage & progress
-        # Special: Разработка (stage 0) has sub-progress:
-        #   plan == fact (started same day) → 1%
-        #   fact filled (completed) → 5% (full stage weight)
+        # Stage & progress — each fact = start of that phase
+        # Разработка факт → 1% (dev started)
+        # ИТ факт → 5% (dev done = testing started)
+        # 1% факт → 20%, etc.
         stage = "Не начат"
         n_stages = len(STAGES)
         for i in range(n_stages - 1, -1, -1):
             if facts[i]:
                 stage = STAGE_NAMES[i]; break
         r["stage"] = stage
-        progress = STAGE_WEIGHTS.get(stage, 0)
-        # Sub-progress for Разработка: if only stage 0 completed and plan==fact → just started (1%)
-        if stage == STAGE_NAMES[0] and plans[0] and facts[0] and plans[0] == facts[0]:
-            progress = 0.01
-        r["progress"] = progress
+        r["progress"] = STAGE_WEIGHTS.get(stage, 0)
 
         # Slippage & RAG — compare next plan date vs today
         today = datetime.date.today()
@@ -523,8 +519,8 @@ td.left {{ text-align: left; }}
     <h3>Как считается прогресс</h3>
     <table>
       <tr><th style="text-align:left;width:200px">Этап</th><th style="text-align:left;width:80px">Вес</th><th style="text-align:left">Пояснение</th></tr>
-      <tr><td class="left">Разработка</td><td>1% / 5%</td><td class="left">1% — разработка стартовала (план = факт). 5% — разработка завершена (факт отличается от плана или этап закрыт)</td></tr>
-      <tr><td class="left">Интеграционное тестирование</td><td>10%</td><td class="left">e2e-тесты запущены</td></tr>
+      <tr><td class="left">Разработка</td><td>1%</td><td class="left">Разработка стартовала</td></tr>
+      <tr><td class="left">Интеграционное тестирование</td><td>5%</td><td class="left">Разработка завершена, ИТ стартовал</td></tr>
       <tr><td class="left">1% раскатка</td><td>20%</td><td class="left">Пилот на 1% трафика</td></tr>
       <tr><td class="left">5% раскатка</td><td>40%</td><td class="left">Расширение пилота</td></tr>
       <tr><td class="left">50% раскатка</td><td>75%</td><td class="left">Половина трафика на новой архитектуре</td></tr>
@@ -723,7 +719,7 @@ function renderKPIs() {{
   const red = rows.filter(r => r.rag === 'RED').length;
   const done = rows.filter(r => r.rag === 'DONE').length;
   document.getElementById('kpis').innerHTML = `
-    <div class="kpi"><div class="val">${{fmtPct(prog)}}</div><div class="lbl">Прогресс <span class="info-tip" title="Средневзвешенный прогресс по весам продуктов. Вес этапов: Старт 5%, ИТ 10%, 1%→20%, 5%→40%, 50%→75%, 100%→100%">ⓘ</span></div></div>
+    <div class="kpi"><div class="val">${{fmtPct(prog)}}</div><div class="lbl">Прогресс <span class="info-tip" title="Средневзвешенный прогресс по весам продуктов. Вес этапов: Разработка 1%, ИТ 5%, 1%→20%, 5%→40%, 50%→75%, 100%→100%">ⓘ</span></div></div>
     <div class="kpi"><div class="val">${{rows.length}}</div><div class="lbl">Активных <span class="info-tip" title="Количество строк с Активен=Да, прошедших через текущие фильтры">ⓘ</span></div></div>
     <div class="kpi red"><div class="val">${{red}}</div><div class="lbl">RED <span class="info-tip" title="Ближайший плановый этап просрочен более чем на 14 дней (план vs сегодня)">ⓘ</span></div></div>
     <div class="kpi green"><div class="val">${{done}}</div><div class="lbl">DONE <span class="info-tip" title="Все 6 этапов завершены — фактическая дата 100% заполнена">ⓘ</span></div></div>
