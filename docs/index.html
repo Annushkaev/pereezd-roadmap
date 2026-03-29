@@ -919,17 +919,61 @@ function initEditor() {
     <div class="ed-preview" id="ed-preview"></div>
   </div>`;
 
-  // Build editor dropdowns
-  buildDD('ddl-ed-prod', D.products, (a,b) => prodOrd(a) - prodOrd(b));
-  buildDD('ddl-ed-sub', subprods);
-  buildDD('ddl-ed-cat', D.categories);
-  buildDD('ddl-ed-instr', D.instruments);
+  // Initial build — will be refreshed dynamically
+  edRefreshFilters();
+}
 
-  // Hook onchange to update preview
-  document.querySelectorAll('#tab-editor .dd-list input').forEach(cb => {
-    const orig = cb.onchange;
-    cb.onchange = () => { if(orig) orig(); updateDDBtn(cb.closest('.dd-list').id); edUpdatePreview(); };
+function edRefreshFilters() {
+  // Get current selections before rebuilding
+  const prevProd = getDDValues('ddl-ed-prod');
+  const prevSub = getDDValues('ddl-ed-sub');
+  const prevCat = getDDValues('ddl-ed-cat');
+  const prevInstr = getDDValues('ddl-ed-instr');
+
+  // Filter rows progressively: each dropdown limits options for the others
+  let pool = D.rows;
+  if (prevProd.length) pool = pool.filter(r => prevProd.includes(r.prod));
+  const availSub = [...new Set(pool.map(r => r.subprod).filter(Boolean))].sort();
+
+  let pool2 = pool;
+  if (prevSub.length) pool2 = pool2.filter(r => prevSub.includes(r.subprod));
+  const availCat = [...new Set(pool2.map(r => r.cat))].sort((a,b) => {
+    const o = {'PRE':0,'1':1,'2':2,'3':3,'4':4}; return (o[a]??9) - (o[b]??9);
   });
+
+  let pool3 = pool2;
+  if (prevCat.length) pool3 = pool3.filter(r => prevCat.includes(r.cat));
+  const availInstr = [...new Set(pool3.map(r => r.instr))].sort();
+
+  // Also compute available products based on other selections (reverse direction)
+  let poolRev = D.rows;
+  if (prevSub.length) poolRev = poolRev.filter(r => prevSub.includes(r.subprod));
+  if (prevCat.length) poolRev = poolRev.filter(r => prevCat.includes(r.cat));
+  if (prevInstr.length) poolRev = poolRev.filter(r => prevInstr.includes(r.instr));
+  const availProd = [...new Set(poolRev.map(r => r.prod))].sort((a,b) => prodOrd(a) - prodOrd(b));
+
+  // Rebuild each dropdown, preserving valid selections
+  edRebuildDD('ddl-ed-prod', availProd, prevProd);
+  edRebuildDD('ddl-ed-sub', availSub, prevSub);
+  edRebuildDD('ddl-ed-cat', availCat, prevCat);
+  edRebuildDD('ddl-ed-instr', availInstr, prevInstr);
+
+  edUpdatePreview();
+}
+
+function edRebuildDD(listId, items, selected) {
+  const list = document.getElementById(listId);
+  list.innerHTML = '';
+  items.forEach(v => {
+    const lbl = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.value = v;
+    cb.checked = selected.includes(v);
+    cb.onchange = () => { updateDDBtn(listId); edRefreshFilters(); };
+    lbl.appendChild(cb); lbl.appendChild(document.createTextNode(v));
+    list.appendChild(lbl);
+  });
+  updateDDBtn(listId);
 }
 
 function edGetSelected() {
