@@ -717,7 +717,12 @@ function cmpProdCat(pA,cA,pB,cB) {{
 }}
 
 // ── Helpers ──
-function fmtPct(v) {{ return (v * 100).toFixed(1) + '%'; }}
+function fmtPct(v) {{
+  const p = v * 100;
+  if (p === 0) return '0%';
+  if (p < 0.1) return p.toFixed(2) + '%';
+  return p.toFixed(1) + '%';
+}}
 function fmtDate(s) {{
   if (!s) return '';
   const d = new Date(s);
