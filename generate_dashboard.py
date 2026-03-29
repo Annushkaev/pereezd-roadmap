@@ -191,6 +191,7 @@ def compute(rows, products):
                 next_plan = plans[i]; break
         slip = (today - next_plan).days if next_plan else None
         r["slip"] = slip
+        has_any_fact = any(facts)
         if facts[n_stages - 1]:
             r["rag"] = "DONE"
         elif slip is None:
@@ -199,6 +200,8 @@ def compute(rows, products):
             r["rag"] = "RED"
         elif slip > 0:
             r["rag"] = "AMBER"
+        elif not has_any_fact:
+            r["rag"] = "WAIT"
         else:
             r["rag"] = "GREEN"
 
@@ -306,6 +309,7 @@ tr:hover {{ background: var(--blue-l); }}
 .rag-AMBER {{ background: var(--amber-l); color: #8B6914; font-weight: 700; }}
 .rag-GREEN {{ background: var(--green-l); color: #2E7D32; font-weight: 700; }}
 .rag-DONE {{ background: #BDD7EE; color: var(--blue); font-weight: 700; }}
+.rag-WAIT {{ background: #F2F2F2; color: #888; font-weight: 700; }}
 .prog-bar {{ width: 60px; height: 16px; background: #E8E8E8; border-radius: 3px;
              display: inline-block; vertical-align: middle; overflow: hidden; }}
 .prog-fill {{ height: 100%; background: var(--blue); border-radius: 3px; transition: .3s; }}
@@ -461,8 +465,11 @@ td.left {{ text-align: left; }}
     <table>
       <tr><th style="text-align:left;width:90px">Статус</th><th style="text-align:left">Условие</th><th style="text-align:left">Что означает</th></tr>
       <tr><td><span style="background:var(--green-l);padding:2px 8px;border-radius:3px;font-weight:700;color:#2E7D32">GREEN</span></td>
-        <td class="left">Плановая дата ближайшего этапа ≥ сегодня (сдвиг ≤ 0 дней)</td>
-        <td class="left">Всё идёт по плану, сроки не нарушены.</td></tr>
+        <td class="left">Есть хотя бы один факт + ближайший план ≥ сегодня</td>
+        <td class="left">Работа идёт, сроки не нарушены.</td></tr>
+      <tr><td><span style="background:#F2F2F2;padding:2px 8px;border-radius:3px;font-weight:700;color:#888">WAIT</span></td>
+        <td class="left">Плановые даты есть, но ни одного факта (сдвиг ≤ 0 дней)</td>
+        <td class="left">Разработка ещё не стартовала. План в будущем, но работа не начата.</td></tr>
       <tr><td><span style="background:var(--amber-l);padding:2px 8px;border-radius:3px;font-weight:700;color:#8B6914">AMBER</span></td>
         <td class="left">Плановая дата просрочена на 1–14 дней</td>
         <td class="left">Небольшая задержка. Нужно внимание — возможно, требуется эскалация.</td></tr>
@@ -674,7 +681,8 @@ function renderKPIs() {{
     <div class="kpi red"><div class="val">${{red}}</div><div class="lbl">RED <span class="info-tip" title="Ближайший плановый этап просрочен более чем на 14 дней (план vs сегодня)">ⓘ</span></div></div>
     <div class="kpi green"><div class="val">${{done}}</div><div class="lbl">DONE <span class="info-tip" title="Все 6 этапов завершены — фактическая дата 100% заполнена">ⓘ</span></div></div>
     <div class="kpi"><div class="val">${{rows.filter(r => r.rag === 'AMBER').length}}</div><div class="lbl">AMBER <span class="info-tip" title="Ближайший плановый этап просрочен на 1-14 дней">ⓘ</span></div></div>
-    <div class="kpi"><div class="val">${{rows.filter(r => r.rag === 'GREEN').length}}</div><div class="lbl">GREEN <span class="info-tip" title="Ближайший плановый этап ещё не наступил — всё в плане">ⓘ</span></div></div>`;
+    <div class="kpi"><div class="val">${{rows.filter(r => r.rag === 'GREEN').length}}</div><div class="lbl">GREEN <span class="info-tip" title="Работа идёт, ближайший плановый этап ещё не наступил">ⓘ</span></div></div>
+    <div class="kpi"><div class="val">${{rows.filter(r => r.rag === 'WAIT').length}}</div><div class="lbl">WAIT <span class="info-tip" title="Плановые даты есть, но разработка ещё не стартовала (нет ни одного факта)">ⓘ</span></div></div>`;
 }}
 
 // ── Dashboard matrix ──
@@ -810,7 +818,8 @@ function renderTimeline() {{
       }});
       const rags = g.items.map(r => r.rag);
       const rag = rags.includes('RED') ? 'RED' : rags.includes('AMBER') ? 'AMBER' :
-                  rags.every(r => r === 'DONE') && rags.length ? 'DONE' : 'GREEN';
+                  rags.every(r => r === 'DONE') && rags.length ? 'DONE' :
+                  rags.includes('GREEN') ? 'GREEN' : rags.includes('WAIT') ? 'WAIT' : '—';
 
       h += `<tr><td class="left" style="font-weight:600">${{g.seg}}</td><td>${{g.instr}}</td>`;
       STAGES.forEach((_,i) => {{
