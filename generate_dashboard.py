@@ -1286,9 +1286,10 @@ function edClearDates() {{
   if (stageIdx < 0) {{ alert('Выберите этап'); return; }}
   const sel = edGetSelected();
   if (!sel.length) {{ alert('Выберите строки'); return; }}
-  const clearPlan = confirm('Удалить плановые даты?');
-  const clearFact = confirm('Удалить фактические даты?');
-  if (!clearPlan && !clearFact) return;
+  const choice = prompt('Что удалить?\\n1 — только план\\n2 — только факт\\n3 — всё', '3');
+  if (!choice) return;
+  const clearPlan = choice === '1' || choice === '3';
+  const clearFact = choice === '2' || choice === '3';
   sel.forEach(r => {{
     if (clearPlan) r.plans[stageIdx] = null;
     if (clearFact) r.facts[stageIdx] = null;
