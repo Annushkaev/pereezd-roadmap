@@ -597,37 +597,29 @@ function renderGantt() {
   const rows = getFiltered();
   const container = document.getElementById('gantt-body');
   const mode = document.getElementById('gantt-mode').value;
-  const level = document.getElementById('gantt-level').value;
   container.innerHTML = '';
 
   D.categories.forEach(cat => {
     const catRows = rows.filter(r => r.cat === cat);
     if (!catRows.length) return;
 
-    // Group by product, subproduct, or instrument
-    const prods = {};
+    // Group by Product × Instrument
+    const groups = {};
     catRows.forEach(r => {
-      let key;
-      if (level === 'subproduct') {
-        key = r.prod + (r.subprod ? ' / ' + r.subprod : '') + (r.subseg ? ' (' + r.subseg + ')' : '');
-      } else if (level === 'instrument') {
-        key = r.prod + ' × ' + r.instr;
-      } else {
-        key = r.prod;
-      }
-      if (!prods[key]) prods[key] = { plans: STAGES.map(()=>null), facts: STAGES.map(()=>null), _prod: r.prod };
-      const p = prods[key];
+      const key = r.prod + ' | ' + r.instr;
+      if (!groups[key]) groups[key] = { plans: STAGES.map(()=>null), facts: STAGES.map(()=>null), _prod: r.prod, _instr: r.instr };
+      const g = groups[key];
       for (let i = 0; i < STAGES.length; i++) {
         const pd = dateToDays(r.plans[i]);
         const fd = dateToDays(r.facts[i]);
-        if (pd !== null && (p.plans[i] === null || pd < p.plans[i])) p.plans[i] = pd;
-        if (fd !== null && (p.facts[i] === null || fd > p.facts[i])) p.facts[i] = fd;
+        if (pd !== null && (g.plans[i] === null || pd < g.plans[i])) g.plans[i] = pd;
+        if (fd !== null && (g.facts[i] === null || fd > g.facts[i])) g.facts[i] = fd;
       }
     });
 
-    const sorted = Object.entries(prods).sort((a,b) => {
+    const sorted = Object.entries(groups).sort((a,b) => {
       const dp = prodOrd(a[1]._prod) - prodOrd(b[1]._prod);
-      return dp !== 0 ? dp : a[0].localeCompare(b[0]);
+      return dp !== 0 ? dp : a[1]._instr.localeCompare(b[1]._instr);
     }).filter(([_,d]) => !d.plans.every(v => v === null));
     if (!sorted.length) return;
 
@@ -726,7 +718,7 @@ function renderGantt() {
                range:[0, Math.round((new Date(2026,11,31)-EPOCH)/864e5)] },
       yaxis:{ autorange:'reversed' },
       height: Math.max(labels.length * 28 + 120, 250),
-      margin:{ l:160, r:20, t:40, b:40 },
+      margin:{ l:220, r:20, t:40, b:40 },
       legend:{ orientation:'h', y:-0.12 },
       shapes: [{
         type: 'line', x0: todayDays, x1: todayDays, y0: 0, y1: 1, yref: 'paper',
@@ -805,11 +797,6 @@ function initTabControls() {
     + '<option value="compare">Сравнение план/факт</option>'
     + '<option value="plan">Только план</option>'
     + '<option value="fact">Только факт</option></select></div>'
-    + '<div><label style="font-size:12px;color:var(--muted)">Детализация</label><br>'
-    + `<select id="gantt-level" onchange="render()" style="${selStyle}">`
-    + '<option value="product">По продукту</option>'
-    + '<option value="subproduct">По подпродукту</option>'
-    + '<option value="instrument">По инструменту</option></select></div>'
     + '<div class="legend" style="margin:0">'
     + STAGES.map((s,i) => `<span><i style="background:${STAGE_COLORS[i]}"></i> ${s}</span>`).join('')
     + '</div>';
