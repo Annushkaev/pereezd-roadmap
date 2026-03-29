@@ -767,15 +767,10 @@ function renderDashboard() {{
       }} else {{
         const tw = active.reduce((s, r) => s + r.weight, 0) || 1;
         const p = active.reduce((s, r) => s + r.weight * r.progress, 0) / tw;
-        // Color scale: 0% → red, 10% → orange, 40% → yellow, 75% → light green, 100% → green
-        let bg, fg;
-        if (p >= 1.0) {{ bg = '#178D22'; fg = '#fff'; }}
-        else if (p >= 0.75) {{ bg = '#4CAF50'; fg = '#fff'; }}
-        else if (p >= 0.40) {{ bg = '#FFDD2D'; fg = '#333'; }}
-        else if (p >= 0.10) {{ bg = '#F5A623'; fg = '#333'; }}
-        else if (p > 0) {{ bg = '#E76F51'; fg = '#fff'; }}
-        else {{ bg = '#FFECEC'; fg = '#999'; }}
-        h += `<td style="background:${{bg}};color:${{fg}};font-weight:600;font-size:11px">${{fmtPct(p)}}</td>`;
+        const alpha = 0.15 + p * 0.65;
+        const bg = `rgba(18,109,247,${{alpha.toFixed(2)}})`;
+        const fg = p > 0.4 ? '#fff' : '#333';
+        h += `<td style="background:${{bg}};color:${{fg}}">${{p > 0 ? fmtPct(p) : '0%'}}</td>`;
       }}
     }});
     h += '</tr>';
