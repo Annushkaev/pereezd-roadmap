@@ -195,6 +195,8 @@ def compute(rows, products):
         has_any_fact = any(facts)
         if facts[n_stages - 1]:
             r["rag"] = "DONE"
+        elif slip is None and has_any_fact:
+            r["rag"] = "OK"
         elif slip is None:
             r["rag"] = "—"
         elif slip > 14:
