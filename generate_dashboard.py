@@ -147,6 +147,13 @@ def compute(rows, products):
         w = p["w_agg"] * p["w_prod"] * p["w_subprod"]
         raw_w[k] = w
         by_prod.setdefault(p["prod"], []).append(k)
+    # Manual weight overrides
+    WEIGHT_OVERRIDE = {
+        "КК|КК|Пастила": 0.005,
+        "КК|КК|Секьюритизация": 0.025,
+    }
+    for k, ow in WEIGHT_OVERRIDE.items():
+        if k in raw_w: raw_w[k] = ow
     zero_prods = {prod for prod, keys in by_prod.items() if all(raw_w[k] == 0 for k in keys)}
     prod_w = {}
     for k, w in raw_w.items():
