@@ -604,12 +604,17 @@ function renderGantt() {
     const catRows = rows.filter(r => r.cat === cat);
     if (!catRows.length) return;
 
-    // Group by product or subproduct
+    // Group by product, subproduct, or instrument
     const prods = {};
     catRows.forEach(r => {
-      const key = level === 'subproduct'
-        ? r.prod + (r.subprod ? ' / ' + r.subprod : '') + (r.subseg ? ' (' + r.subseg + ')' : '')
-        : r.prod;
+      let key;
+      if (level === 'subproduct') {
+        key = r.prod + (r.subprod ? ' / ' + r.subprod : '') + (r.subseg ? ' (' + r.subseg + ')' : '');
+      } else if (level === 'instrument') {
+        key = r.prod + ' × ' + r.instr;
+      } else {
+        key = r.prod;
+      }
       if (!prods[key]) prods[key] = { plans: STAGES.map(()=>null), facts: STAGES.map(()=>null), _prod: r.prod };
       const p = prods[key];
       for (let i = 0; i < STAGES.length; i++) {
@@ -803,7 +808,8 @@ function initTabControls() {
     + '<div><label style="font-size:12px;color:var(--muted)">Детализация</label><br>'
     + `<select id="gantt-level" onchange="render()" style="${selStyle}">`
     + '<option value="product">По продукту</option>'
-    + '<option value="subproduct">По подпродукту</option></select></div>'
+    + '<option value="subproduct">По подпродукту</option>'
+    + '<option value="instrument">По инструменту</option></select></div>'
     + '<div class="legend" style="margin:0">'
     + STAGES.map((s,i) => `<span><i style="background:${STAGE_COLORS[i]}"></i> ${s}</span>`).join('')
     + '</div>';
