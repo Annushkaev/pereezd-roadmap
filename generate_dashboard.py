@@ -18,7 +18,7 @@ from generate_roadmap import (parse_products, parse_instruments,
                                CATEGORIES, SUBSEGMENTS, ROADMAP_DIR)
 
 # 6-stage pipeline
-STAGES = [("Старт разработки", 0.05), ("Интеграционное тестирование", 0.10),
+STAGES = [("Разработка", 0.05), ("Интеграционное тестирование", 0.10),
           ("1%", 0.20), ("5%", 0.40), ("50%", 0.75), ("100%", 1.00)]
 
 ENTRY_PATH = ROADMAP_DIR / "data_entry.xlsx"
@@ -176,12 +176,20 @@ def compute(rows, products):
         r["facts"] = [_d2iso(d) for d in facts]
 
         # Stage & progress
+        # Special: Разработка (stage 0) has sub-progress:
+        #   plan == fact (started same day) → 1%
+        #   fact filled (completed) → 5% (full stage weight)
         stage = "Не начат"
-        for i in range(4, -1, -1):
+        n_stages = len(STAGES)
+        for i in range(n_stages - 1, -1, -1):
             if facts[i]:
                 stage = STAGE_NAMES[i]; break
         r["stage"] = stage
-        r["progress"] = STAGE_WEIGHTS.get(stage, 0)
+        progress = STAGE_WEIGHTS.get(stage, 0)
+        # Sub-progress for Разработка: if only stage 0 completed and plan==fact → just started (1%)
+        if stage == STAGE_NAMES[0] and plans[0] and facts[0] and plans[0] == facts[0]:
+            progress = 0.01
+        r["progress"] = progress
 
         # Slippage & RAG — compare next plan date vs today
         today = datetime.date.today()
@@ -515,7 +523,7 @@ td.left {{ text-align: left; }}
     <h3>Как считается прогресс</h3>
     <table>
       <tr><th style="text-align:left;width:200px">Этап</th><th style="text-align:left;width:80px">Вес</th><th style="text-align:left">Пояснение</th></tr>
-      <tr><td class="left">Старт разработки</td><td>5%</td><td class="left">Разработка начата</td></tr>
+      <tr><td class="left">Разработка</td><td>1% / 5%</td><td class="left">1% — разработка стартовала (план = факт). 5% — разработка завершена (факт отличается от плана или этап закрыт)</td></tr>
       <tr><td class="left">Интеграционное тестирование</td><td>10%</td><td class="left">e2e-тесты запущены</td></tr>
       <tr><td class="left">1% раскатка</td><td>20%</td><td class="left">Пилот на 1% трафика</td></tr>
       <tr><td class="left">5% раскатка</td><td>40%</td><td class="left">Расширение пилота</td></tr>
