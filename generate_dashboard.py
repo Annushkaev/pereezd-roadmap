@@ -139,11 +139,18 @@ def _d2iso(d):
     return d.isoformat() if d else None
 
 def compute(rows, products):
-    prod_w = {}
+    # Build weights; fallback to equal (1.0) only when ALL subproducts of a product have weight 0
+    raw_w = {}
+    by_prod = {}
     for p in products:
         k = f'{p["agg"]}|{p["prod"]}|{p["subprod"]}'
         w = p["w_agg"] * p["w_prod"] * p["w_subprod"]
-        prod_w[k] = w if w > 0 else 1.0  # fallback: equal weight if source has 0
+        raw_w[k] = w
+        by_prod.setdefault(p["prod"], []).append(k)
+    zero_prods = {prod for prod, keys in by_prod.items() if all(raw_w[k] == 0 for k in keys)}
+    prod_w = {}
+    for k, w in raw_w.items():
+        prod_w[k] = 1.0 if w == 0 and k.split("|")[1] in zero_prods else w
     subseg_w = {f"{sp}|{sn}": sw for sp, segs in SUBSEGMENTS for sn, sw in segs}
 
     out = []
