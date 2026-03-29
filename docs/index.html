@@ -231,8 +231,8 @@ td.left { text-align: left; }
     <table>
       <tr><th style="text-align:left;width:90px">Статус</th><th style="text-align:left">Условие</th><th style="text-align:left">Что означает</th></tr>
       <tr><td><span style="background:var(--green-l);padding:2px 8px;border-radius:3px;font-weight:700;color:var(--green)">OK</span></td>
-        <td class="left">Есть хотя бы один факт + ближайший план ≥ сегодня</td>
-        <td class="left">По графику: работа идёт, сроки не нарушены.</td></tr>
+        <td class="left">Есть хотя бы один факт, но следующий этап ещё не запланирован</td>
+        <td class="left">Работа по текущему этапу сделана. Ожидание плановой даты на следующий этап.</td></tr>
       <tr><td><span style="background:#F2F2F2;padding:2px 8px;border-radius:3px;font-weight:700;color:#888">WAIT</span></td>
         <td class="left">Плановые даты есть, но ни одного факта (план ≥ сегодня)</td>
         <td class="left">Ожидание: работа ещё не начата. Как только дата пройдёт без факта → AMBER/RED.</td></tr>
@@ -262,9 +262,9 @@ td.left { text-align: left; }
       <tr><td class="left">50% раскатка</td><td>75%</td><td class="left">Половина трафика на новой архитектуре</td></tr>
       <tr><td class="left">100% раскатка</td><td>100%</td><td class="left">Полная миграция завершена</td></tr>
     </table>
-    <p style="margin-top:12px"><b>Прогресс строки</b> = вес последнего завершённого этапа (у которого заполнена фактическая дата). Если ни один этап не завершён — 0%.</p>
-    <p><b>Прогресс сегмента</b> (на Dashboard/Timeline) = средневзвешенное по весам подпродуктов. Веса берутся из справочника продуктов (source/Продукты+для+переезда.doc).</p>
-    <p><b>Общий прогресс</b> (KPI-карточка) = средневзвешенное по всем активным строкам с учётом фильтров.</p>
+    <p style="margin-top:12px"><b>Прогресс строки</b> = вес последнего этапа с заполненным фактом. Если ни один этап не начат — 0%.</p>
+    <p><b>Прогресс ячейки</b> (на Dashboard) = средневзвешенное по подпродуктам внутри сегмента × инструмента. Веса: КК из справочника (Обычная 96%, РБ 1%, Пастила 0.5%, Секьюритизация 2.5%), остальные продукты — равные доли (1/N подпродуктов).</p>
+    <p><b>Общий прогресс</b> (KPI-карточка) = среднее арифметическое по всем ячейкам Dashboard. Каждая ячейка (сегмент × инструмент) считается равной.</p>
   </div>
 
   <div class="info-box">
@@ -473,7 +473,7 @@ function renderKPIs() {
     <div class="kpi red"><div class="val">${red}</div><div class="lbl">RED <span class="info-tip" title="Ближайший плановый этап просрочен более чем на 14 дней (план vs сегодня)">ⓘ</span></div></div>
     <div class="kpi green"><div class="val">${done}</div><div class="lbl">DONE <span class="info-tip" title="Все 6 этапов завершены — фактическая дата 100% заполнена">ⓘ</span></div></div>
     <div class="kpi"><div class="val">${rows.filter(r => r.rag === 'AMBER').length}</div><div class="lbl">AMBER <span class="info-tip" title="Ближайший плановый этап просрочен на 1-14 дней">ⓘ</span></div></div>
-    <div class="kpi green"><div class="val">${rows.filter(r => r.rag === 'OK').length}</div><div class="lbl">OK <span class="info-tip" title="По графику: работа идёт, ближайший план ещё не наступил">ⓘ</span></div></div>
+    <div class="kpi green"><div class="val">${rows.filter(r => r.rag === 'OK').length}</div><div class="lbl">OK <span class="info-tip" title="Текущий этап выполнен, следующий ещё не запланирован">ⓘ</span></div></div>
     <div class="kpi"><div class="val">${rows.filter(r => r.rag === 'WAIT').length}</div><div class="lbl">WAIT <span class="info-tip" title="Ожидание: план в будущем, но работа ещё не начата (нет фактов)">ⓘ</span></div></div>`;
 }
 
