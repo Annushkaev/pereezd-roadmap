@@ -410,10 +410,11 @@ function renderDashboard() {
 function renderTimeline() {
   const rows = getFiltered();
   const hideInactive = document.getElementById('f-hide-inactive').checked;
-  const detailed = document.getElementById('f-tl-detail') && document.getElementById('f-tl-detail').checked;
+  const prev = document.getElementById('f-tl-detail');
+  const detailed = prev ? prev.checked : false;
 
   let h = '<div style="margin-bottom:8px"><label style="font-size:13px;cursor:pointer">'
-    + '<input type="checkbox" id="f-tl-detail" onchange="render()"> Детализация по подпродуктам</label></div>';
+    + `<input type="checkbox" id="f-tl-detail" onchange="render()" ${detailed ? 'checked' : ''}> Детализация по подпродуктам</label></div>`;
 
   if (detailed) {
     // ── Detailed: one row per subproduct × instrument ──
