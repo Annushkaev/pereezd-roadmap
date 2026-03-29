@@ -597,16 +597,20 @@ function renderGantt() {
   const rows = getFiltered();
   const container = document.getElementById('gantt-body');
   const mode = document.getElementById('gantt-mode').value;
+  const detail = document.getElementById('gantt-detail').checked;
   container.innerHTML = '';
 
   D.categories.forEach(cat => {
     const catRows = rows.filter(r => r.cat === cat);
     if (!catRows.length) return;
 
-    // Group by Product × Instrument
+    // Group by Product × Instrument (optionally with subproduct detail)
     const groups = {};
     catRows.forEach(r => {
-      const key = r.prod + ' | ' + r.instr;
+      let key = r.prod + ' | ' + r.instr;
+      if (detail) {
+        key = r.prod + (r.subprod ? ' / ' + r.subprod : '') + (r.subseg ? ' (' + r.subseg + ')' : '') + ' | ' + r.instr;
+      }
       if (!groups[key]) groups[key] = { plans: STAGES.map(()=>null), facts: STAGES.map(()=>null), _prod: r.prod, _instr: r.instr };
       const g = groups[key];
       for (let i = 0; i < STAGES.length; i++) {
@@ -797,6 +801,7 @@ function initTabControls() {
     + '<option value="compare">Сравнение план/факт</option>'
     + '<option value="plan">Только план</option>'
     + '<option value="fact">Только факт</option></select></div>'
+    + '<label><input type="checkbox" id="gantt-detail" onchange="render()"> Детализация по подпродуктам</label>'
     + '<div class="legend" style="margin:0">'
     + STAGES.map((s,i) => `<span><i style="background:${STAGE_COLORS[i]}"></i> ${s}</span>`).join('')
     + '</div>'
