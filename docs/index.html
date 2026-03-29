@@ -719,7 +719,7 @@ function renderGantt() {
       yaxis:{ autorange:'reversed' },
       height: Math.max(labels.length * 28 + 120, 250),
       margin:{ l:220, r:20, t:40, b:40 },
-      legend:{ orientation:'h', y:-0.12 },
+      showlegend: false,
       shapes: [{
         type: 'line', x0: todayDays, x1: todayDays, y0: 0, y1: 1, yref: 'paper',
         line: { color: '#C00000', width: 2, dash: 'dash' }
@@ -799,6 +799,11 @@ function initTabControls() {
     + '<option value="fact">Только факт</option></select></div>'
     + '<div class="legend" style="margin:0">'
     + STAGES.map((s,i) => `<span><i style="background:${STAGE_COLORS[i]}"></i> ${s}</span>`).join('')
+    + '</div>'
+    + '<div class="legend" style="margin:0;border-left:1px solid var(--border);padding-left:12px">'
+    + '<span><i style="background:#26465366;border:1px dashed #264653"></i> План</span>'
+    + '<span><i style="background:#264653"></i> Факт</span>'
+    + '<span style="color:var(--red);font-weight:600">┆ Сегодня</span>'
     + '</div>';
 
   // Data — no extra controls
