@@ -320,10 +320,24 @@ function renderDashboard() {
   let h = '<div class="legend" style="margin-bottom:8px"><span><i style="background:rgba(47,84,150,0.15)"></i> Активно (0%)</span>'
     + '<span><i style="background:rgba(47,84,150,0.7)"></i> Активно (прогресс)</span>'
     + '<span><i style="background:#F0F0F0;border:1px solid #ddd"></i> Не предусмотрено</span></div>';
+  const PROD_GRP = {
+    'КК':'Незалоговые','КН':'Незалоговые','КЛ':'Незалоговые','КНР':'Незалоговые','КНО':'Незалоговые',
+    'POS':'Незалоговые','BNPL':'Незалоговые','Долями+':'Незалоговые','Кубышка':'Незалоговые','Незалоги.Дабл':'Незалоговые',
+    'Авто':'Залоговые','Недвижимость':'Залоговые','КЛ':'Незалоговые','Залоги.Дабл':'Залоговые',
+    'Умершие':'Спецсегменты','Банкроты':'Спецсегменты','Нерезиденты':'Спецсегменты','3P':'Спецсегменты','Инсталлмент':'Спецсегменты'
+  };
+  const nCols = instrs.length + 1;
   h += '<div class="matrix-wrap"><table class="matrix"><thead><tr><th>Сегмент</th>';
   instrs.forEach(i => h += `<th class="instr">${i}</th>`);
   h += '</tr></thead><tbody>';
+  let lastGrp = '';
   segs.forEach(seg => {
+    const prod = seg.split(' | ')[0];
+    const grp = PROD_GRP[prod] || 'Прочие';
+    if (grp !== lastGrp) {
+      h += `<tr><td colspan="${nCols}" style="background:var(--blue);color:#fff;font-weight:700;font-size:13px;padding:6px 10px;text-align:left">${grp}</td></tr>`;
+      lastGrp = grp;
+    }
     h += `<tr><td class="left" style="font-weight:600">${seg}</td>`;
     instrs.forEach(instr => {
       const all = allRows.filter(r => r.seg === seg && r.instr === instr);
@@ -350,53 +364,87 @@ function renderDashboard() {
 function renderTimeline() {
   const rows = getFiltered();
   const hideInactive = document.getElementById('f-hide-inactive').checked;
-  // Aggregate by segment × instrument
-  const groups = {};
-  rows.forEach(r => {
-    const k = r.seg + '|' + r.instr;
-    if (!groups[k]) groups[k] = { seg: r.seg, prod: r.prod, cat: r.cat, instr: r.instr, items: [] };
-    groups[k].items.push(r);
-  });
-  let entries = Object.values(groups).sort((a,b) => {
-    const pc = cmpProdCat(a.prod, a.cat, b.prod, b.cat);
-    return pc !== 0 ? pc : a.instr.localeCompare(b.instr);
-  });
-  if (hideInactive) {
-    entries = entries.filter(g => g.items.some(r => r.plans.some(Boolean) || r.facts.some(Boolean)));
+  const detailed = document.getElementById('f-tl-detail') && document.getElementById('f-tl-detail').checked;
+
+  let h = '<div style="margin-bottom:8px"><label style="font-size:13px;cursor:pointer">'
+    + '<input type="checkbox" id="f-tl-detail" onchange="render()"> Детализация по подпродуктам</label></div>';
+
+  if (detailed) {
+    // ── Detailed: one row per subproduct × instrument ──
+    let detail = rows.map(r => ({...r}));
+    if (hideInactive) detail = detail.filter(r => r.plans.some(Boolean) || r.facts.some(Boolean));
+    detail.sort((a,b) => {
+      const pc = cmpProdCat(a.prod, a.cat, b.prod, b.cat);
+      if (pc !== 0) return pc;
+      if (a.subprod !== b.subprod) return a.subprod.localeCompare(b.subprod);
+      return a.instr.localeCompare(b.instr);
+    });
+
+    h += '<div style="overflow-x:auto"><table><thead><tr><th>Сегмент</th><th>Подпродукт</th><th>Подсегмент</th><th>Инструмент</th>';
+    STAGES.forEach(s => h += `<th colspan="2" class="stage-grp">${s}</th>`);
+    h += '<th>Прогресс</th><th>RAG</th></tr><tr><th></th><th></th><th></th><th></th>';
+    STAGES.forEach(() => h += '<th style="font-size:10px">план</th><th style="font-size:10px">факт</th>');
+    h += '<th></th><th></th></tr></thead><tbody>';
+
+    detail.forEach(r => {
+      h += `<tr><td class="left" style="font-weight:600">${r.seg}</td>`;
+      h += `<td class="left">${r.subprod}</td><td>${r.subseg||''}</td><td>${r.instr}</td>`;
+      for (let i = 0; i < STAGES.length; i++) {
+        const pc = r.plans[i] ? 'plan-cell' : '';
+        const fc = r.facts[i] ? 'fact-done' : '';
+        h += `<td class="${pc}">${fmtDate(r.plans[i])}</td><td class="${fc}">${fmtDate(r.facts[i])}</td>`;
+      }
+      h += `<td>${progBar(r.progress)}</td><td class="${ragClass(r.rag)}">${r.rag}</td></tr>`;
+    });
+    h += '</tbody></table></div>';
+
+  } else {
+    // ── Aggregated: segment × instrument ──
+    const groups = {};
+    rows.forEach(r => {
+      const k = r.seg + '|' + r.instr;
+      if (!groups[k]) groups[k] = { seg: r.seg, prod: r.prod, cat: r.cat, instr: r.instr, items: [] };
+      groups[k].items.push(r);
+    });
+    let entries = Object.values(groups).sort((a,b) => {
+      const pc = cmpProdCat(a.prod, a.cat, b.prod, b.cat);
+      return pc !== 0 ? pc : a.instr.localeCompare(b.instr);
+    });
+    if (hideInactive) {
+      entries = entries.filter(g => g.items.some(r => r.plans.some(Boolean) || r.facts.some(Boolean)));
+    }
+
+    h += '<table><thead><tr><th>Сегмент</th><th>Инструмент</th>';
+    STAGES.forEach(s => h += `<th colspan="2" class="stage-grp">${s}</th>`);
+    h += '<th>Прогресс</th><th>RAG</th></tr><tr><th></th><th></th>';
+    STAGES.forEach(() => h += '<th style="font-size:10px">план</th><th style="font-size:10px">факт</th>');
+    h += '<th></th><th></th></tr></thead><tbody>';
+
+    entries.forEach(g => {
+      const tw = g.items.reduce((s,r) => s + r.weight, 0) || 1;
+      const prog = g.items.reduce((s,r) => s + r.weight * r.progress, 0) / tw;
+      const plans = STAGES.map((_,i) => {
+        const dates = g.items.map(r => r.plans[i]).filter(Boolean);
+        return dates.length ? dates.sort()[0] : null;
+      });
+      const facts = STAGES.map((_,i) => {
+        const dates = g.items.map(r => r.facts[i]).filter(Boolean);
+        return dates.length ? dates.sort().pop() : null;
+      });
+      const rags = g.items.map(r => r.rag);
+      const rag = rags.includes('RED') ? 'RED' : rags.includes('AMBER') ? 'AMBER' :
+                  rags.every(r => r === 'DONE') && rags.length ? 'DONE' : 'GREEN';
+
+      h += `<tr><td class="left" style="font-weight:600">${g.seg}</td><td>${g.instr}</td>`;
+      STAGES.forEach((_,i) => {
+        const pc = plans[i] ? 'plan-cell' : '';
+        const fc = facts[i] ? 'fact-done' : '';
+        h += `<td class="${pc}">${fmtDate(plans[i])}</td><td class="${fc}">${fmtDate(facts[i])}</td>`;
+      });
+      h += `<td>${progBar(prog)}</td><td class="${ragClass(rag)}">${rag}</td></tr>`;
+    });
+    h += '</tbody></table>';
   }
-
-  let h = '<table><thead><tr><th>Сегмент</th><th>Инструмент</th>';
-  STAGES.forEach(s => h += `<th colspan="2" class="stage-grp">${s}</th>`);
-  h += '<th>Прогресс</th><th>RAG</th></tr><tr><th></th><th></th>';
-  STAGES.forEach(() => h += '<th style="font-size:10px">план</th><th style="font-size:10px">факт</th>');
-  h += '<th></th><th></th></tr></thead><tbody>';
-
-  entries.forEach(g => {
-    const tw = g.items.reduce((s,r) => s + r.weight, 0) || 1;
-    const prog = g.items.reduce((s,r) => s + r.weight * r.progress, 0) / tw;
-    // Aggregate dates: min plan, max fact per stage
-    const plans = STAGES.map((_,i) => {
-      const dates = g.items.map(r => r.plans[i]).filter(Boolean);
-      return dates.length ? dates.sort()[0] : null;
-    });
-    const facts = STAGES.map((_,i) => {
-      const dates = g.items.map(r => r.facts[i]).filter(Boolean);
-      return dates.length ? dates.sort().pop() : null;
-    });
-    // RAG: worst
-    const rags = g.items.map(r => r.rag);
-    const rag = rags.includes('RED') ? 'RED' : rags.includes('AMBER') ? 'AMBER' :
-                rags.every(r => r === 'DONE') && rags.length ? 'DONE' : 'GREEN';
-
-    h += `<tr><td class="left" style="font-weight:600">${g.seg}</td><td>${g.instr}</td>`;
-    STAGES.forEach((_,i) => {
-      const pc = plans[i] ? 'plan-cell' : '';
-      const fc = facts[i] ? 'fact-done' : '';
-      h += `<td class="${pc}">${fmtDate(plans[i])}</td><td class="${fc}">${fmtDate(facts[i])}</td>`;
-    });
-    h += `<td>${progBar(prog)}</td><td class="${ragClass(rag)}">${rag}</td></tr>`;
-  });
-  h += '</tbody></table>';
   document.getElementById('tab-timeline').innerHTML = h;
 }
 
@@ -449,6 +497,7 @@ function renderGantt() {
         if (days >= -30 && days <= 800) { tv.push(days); tt.push(mNames[m] + "'" + String(y).slice(2)); }
       }
 
+    const todayDays = Math.round((new Date() - EPOCH) / 86400000);
     Plotly.newPlot(div, [
       { type:'bar', orientation:'h', y:labels, x:gaps, name:'', showlegend:false,
          marker:{color:'rgba(0,0,0,0)'}, hoverinfo:'skip' },
@@ -463,7 +512,15 @@ function renderGantt() {
       yaxis:{ autorange:'reversed' },
       height: Math.max(labels.length * 32 + 120, 250),
       margin:{ l:150, r:20, t:40, b:40 },
-      legend:{ orientation:'h', y:-0.15 }
+      legend:{ orientation:'h', y:-0.15 },
+      shapes: [{
+        type: 'line', x0: todayDays, x1: todayDays, y0: 0, y1: 1, yref: 'paper',
+        line: { color: '#C00000', width: 2, dash: 'dash' }
+      }],
+      annotations: [{
+        x: todayDays, y: 1.02, yref: 'paper', text: 'Сегодня', showarrow: false,
+        font: { size: 11, color: '#C00000', weight: 'bold' }
+      }]
     }, { responsive:true });
   });
 
