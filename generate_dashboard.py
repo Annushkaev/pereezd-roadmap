@@ -32,6 +32,15 @@ NEREZIDENTY_SUBPRODUCTS = [
     dict(agg="Нерезиденты", w_agg=0.0, prod="Нерезиденты", w_prod=0.0, subprod="другое", w_subprod=0.0),
 ]
 
+# Инсталлмент subproducts (replace single entry from Confluence)
+INSTALLMENT_SUBPRODUCTS = [
+    dict(agg="КК", w_agg=0.25, prod="Инсталлмент", w_prod=0.03, subprod="КК", w_subprod=0.5),
+    dict(agg="КК", w_agg=0.25, prod="Инсталлмент", w_prod=0.03, subprod="КН", w_subprod=0.5),
+]
+
+# Subsegments only apply to specific categories (None = all)
+SUBSEGMENT_CATEGORIES = {"Обычная (все грейсы)": {"1"}}
+
 ENTRY_PATH = ROADMAP_DIR / "data_entry.xlsx"
 HTML_PATH = ROADMAP_DIR / "Roadmap_Переезд.html"
 
@@ -82,7 +91,8 @@ def generate_entry_xlsx(products, instruments):
                 base = [p["agg"], p["prod"], p["subprod"], "", cat,
                         inst["group"], inst["instrument"], "Нет"]
                 entries = []
-                if p["subprod"] in sm:
+                allowed = SUBSEGMENT_CATEGORIES.get(p["subprod"])
+                if p["subprod"] in sm and (allowed is None or cat in allowed):
                     for sn, _ in sm[p["subprod"]]:
                         entries.append(base[:3] + [sn] + base[4:])
                 else:
@@ -1521,10 +1531,11 @@ def main():
     # Remove excluded instruments
     instruments = [i for i in instruments if i["instrument"] not in EXCLUDED_INSTRUMENTS]
 
-    # Replace single Нерезиденты with subproducts
+    # Replace single-entry products with subproducts
     products = [p for p in products
                 if not (p["prod"] == "Нерезиденты" and p["subprod"] == "Нерезиденты")
-                ] + NEREZIDENTY_SUBPRODUCTS
+                and not (p["prod"] == "Инсталлмент" and p["subprod"] == "Инсталлмент")
+                ] + NEREZIDENTY_SUBPRODUCTS + INSTALLMENT_SUBPRODUCTS
 
     print(f"  Products: {len(products)}, Instruments: {len(instruments)}")
 
