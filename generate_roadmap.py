@@ -937,9 +937,19 @@ def create_instructions(wb):
 # ── Main ──────────────────────────────────────────────────────────────
 
 def main():
+    # Import exclusion/expansion rules from the dashboard generator
+    from generate_dashboard import EXCLUDED_INSTRUMENTS, NEREZIDENTY_SUBPRODUCTS
+
     print("Parsing Confluence exports...")
     products = parse_products(ROADMAP_DIR / "Продукты+для+переезда.doc")
     instruments = parse_instruments(ROADMAP_DIR / "Инструменты+для+переезда.doc")
+
+    # Apply same filters as generate_dashboard
+    instruments = [i for i in instruments if i["instrument"] not in EXCLUDED_INSTRUMENTS]
+    products = [p for p in products
+                if not (p["prod"] == "Нерезиденты" and p["subprod"] == "Нерезиденты")
+                ] + NEREZIDENTY_SUBPRODUCTS
+
     print(f"  Products: {len(products)} leaf nodes, Instruments: {len(instruments)}")
 
     wb = openpyxl.Workbook()
