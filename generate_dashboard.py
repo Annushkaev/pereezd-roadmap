@@ -21,6 +21,17 @@ from generate_roadmap import (parse_products, parse_instruments,
 STAGES = [("Разработка", 0.01), ("e2e", 0.05),
           ("1%", 0.20), ("5%", 0.40), ("50%", 0.75), ("100%", 1.00)]
 
+# Instruments removed from the model
+EXCLUDED_INSTRUMENTS = {"Вход", "Звонки Вход", "Чаты", "Выезды Legal", "Модуль реструктуризации"}
+
+# Нерезиденты subproducts (replace single entry from Confluence)
+NEREZIDENTY_SUBPRODUCTS = [
+    dict(agg="Нерезиденты", w_agg=0.0, prod="Нерезиденты", w_prod=0.0, subprod="КК", w_subprod=0.0),
+    dict(agg="Нерезиденты", w_agg=0.0, prod="Нерезиденты", w_prod=0.0, subprod="Кубышка", w_subprod=0.0),
+    dict(agg="Нерезиденты", w_agg=0.0, prod="Нерезиденты", w_prod=0.0, subprod="BNPL", w_subprod=0.0),
+    dict(agg="Нерезиденты", w_agg=0.0, prod="Нерезиденты", w_prod=0.0, subprod="другое", w_subprod=0.0),
+]
+
 ENTRY_PATH = ROADMAP_DIR / "data_entry.xlsx"
 HTML_PATH = ROADMAP_DIR / "Roadmap_Переезд.html"
 
@@ -177,7 +188,9 @@ def compute(rows, products):
         r["cat"] = row["Категория ПЗ"]
         r["igrp"] = row["Группа инструмента"]
         _instr = row["Инструмент"]
-        r["instr"] = "Звонки Исход" if _instr == "Исход" else "Звонки Вход" if _instr == "Вход" else _instr
+        if _instr in EXCLUDED_INSTRUMENTS:
+            continue
+        r["instr"] = "Звонки Исход" if _instr == "Исход" else _instr
         r["seg"] = f'{r["prod"]} | {r["cat"]}'
         r["active"] = row.get("Активен", "").strip().lower() in ("да", "yes", "1")
         r["epics"] = row.get("Эпики", "")
@@ -712,9 +725,9 @@ const PROD_ORDER = {{
 }};
 const CAT_ORDER = {{'PRE':0,'1':1,'2':2,'3':3,'4':4}};
 const INSTR_ORDER = {{
-  'Звонки Исход':0,'Звонки Вход':1,'Чаты':2,'СМС/PUSH':3,'Self-Service':4,'Мобильный банк':5,
-  'Бумажные письма':6,'АПД':7,'CarSearch':8,'Выезды реализации':9,
-  'Выезды Legal':10,'Модуль реструктуризации':11,'Реализация':12,'Автоплатежи':13
+  'Звонки Исход':0,'СМС/PUSH':1,'Self-Service':2,'Мобильный банк':3,
+  'Бумажные письма':4,'АПД':5,'CarSearch':6,'Выезды реализации':7,
+  'Реализация':8,'Автоплатежи':9
 }};
 function prodOrd(p) {{ return PROD_ORDER[p] ?? 50; }}
 function catOrd(c) {{ return CAT_ORDER[c] ?? 9; }}
@@ -1504,6 +1517,15 @@ def main():
     print("Parsing Confluence exports...")
     products = parse_products(ROADMAP_DIR / "Продукты+для+переезда.doc")
     instruments = parse_instruments(ROADMAP_DIR / "Инструменты+для+переезда.doc")
+
+    # Remove excluded instruments
+    instruments = [i for i in instruments if i["instrument"] not in EXCLUDED_INSTRUMENTS]
+
+    # Replace single Нерезиденты with subproducts
+    products = [p for p in products
+                if not (p["prod"] == "Нерезиденты" and p["subprod"] == "Нерезиденты")
+                ] + NEREZIDENTY_SUBPRODUCTS
+
     print(f"  Products: {len(products)}, Instruments: {len(instruments)}")
 
     if force_csv or not ENTRY_PATH.exists():
