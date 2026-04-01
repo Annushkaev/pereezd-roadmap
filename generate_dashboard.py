@@ -50,7 +50,7 @@ PLAN_COLS = [f"{s} план" for s in STAGE_NAMES]
 FACT_COLS = [f"{s} факт" for s in STAGE_NAMES]
 BASE_COLS = [f"{s} baseline" for s in STAGE_NAMES]
 CSV_HEADERS = (["Агрегация","Продукт","Подпродукт","Подсегмент","Категория ПЗ",
-                "Группа инструмента","Инструмент","Активен"]
+                "Группа инструмента","Инструмент","Активен","Год","Тип миграции"]
                + PLAN_COLS + FACT_COLS + BASE_COLS + ["Эпики","Комментарии"])
 
 # ── XLSX Entry ───────────────────────────────────────────────────────
@@ -74,8 +74,8 @@ def generate_entry_xlsx(products, instruments):
 
     # Column widths and fills
     n_stages = len(STAGES)
-    widths = [16,16,22,14,12,20,22,9] + [11]*n_stages + [11]*n_stages + [11]*n_stages + [30,25]
-    plan_start = 8
+    widths = [16,16,22,14,12,20,22,9,7,14] + [11]*n_stages + [11]*n_stages + [11]*n_stages + [30,25]
+    plan_start = 10
     date_plan_cols = list(range(plan_start, plan_start + n_stages))
     date_fact_cols = list(range(plan_start + n_stages, plan_start + 2*n_stages))
     date_base_cols = list(range(plan_start + 2*n_stages, plan_start + 3*n_stages))
@@ -117,10 +117,17 @@ def generate_entry_xlsx(products, instruments):
     # Data validation: Активен = Да/Нет
     dv = DataValidation(type="list", formula1='"Да,Нет"', allow_blank=False)
     dv.add(f"H2:H{row_n-1}"); ws.add_data_validation(dv)
+    # Data validation: Год = 2026/2027
+    dv_god = DataValidation(type="list", formula1='"2026,2027"', allow_blank=True)
+    dv_god.add(f"I2:I{row_n-1}"); ws.add_data_validation(dv_god)
+    # Data validation: Тип миграции = старое/новое
+    dv_tip = DataValidation(type="list", formula1='"старое,новое"', allow_blank=True)
+    dv_tip.add(f"J2:J{row_n-1}"); ws.add_data_validation(dv_tip)
 
     # Freeze + AutoFilter
-    ws.freeze_panes = "I2"
-    ws.auto_filter.ref = f"A1:Y{row_n-1}"
+    ws.freeze_panes = "K2"
+    last_col = openpyxl.utils.get_column_letter(len(CSV_HEADERS))
+    ws.auto_filter.ref = f"A1:{last_col}{row_n-1}"
 
     wb.save(str(ENTRY_PATH))
     print(f"  XLSX: {total} rows → {ENTRY_PATH.name}")
@@ -205,6 +212,8 @@ def compute(rows, products):
         r["active"] = row.get("Активен", "").strip().lower() in ("да", "yes", "1")
         r["epics"] = row.get("Эпики", "")
         r["comment"] = row.get("Комментарии", "")
+        r["god"] = row.get("Год", "") or ""
+        r["tip"] = row.get("Тип миграции", "") or ""
 
         # Weight
         k = f'{r["agg"]}|{r["prod"]}|{r["subprod"]}'
@@ -269,7 +278,7 @@ def compute(rows, products):
 
 # ── HTML ─────────────────────────────────────────────────────────────
 
-def generate_html(data):
+def generate_html(data, products_catalog=None, instruments_catalog=None):
     active = [r for r in data if r["active"]]
     # KPIs — average of Dashboard cells (segment × instrument), each cell equal
     cells = {}
@@ -297,12 +306,22 @@ def generate_html(data):
         cr = {k: v for k, v in r.items()
               if v is not None and v != "" and v != [] and v != 0}
         # Always keep key fields
-        for k in ("prod", "subprod", "cat", "instr", "active"):
+        for k in ("prod", "subprod", "cat", "instr", "active", "god", "tip"):
             cr[k] = r[k]
         # Compact plans/facts: only include if any non-null
         cr["plans"] = r["plans"]
         cr["facts"] = r["facts"]
         compact_rows.append(cr)
+
+    years = sorted(set(r["god"] for r in data if r["god"]))
+    types = sorted(set(r["tip"] for r in data if r["tip"]))
+    cat_products = [{"agg": p["agg"], "prod": p["prod"], "subprod": p["subprod"],
+                     "w_agg": p["w_agg"], "w_prod": p["w_prod"], "w_subprod": p["w_subprod"]}
+                    for p in (products_catalog or [])]
+    cat_instruments = [{"group": i["group"], "instrument": i["instrument"]}
+                       for i in (instruments_catalog or [])]
+    subseg_data = [[sp, segs] for sp, segs in SUBSEGMENTS]
+    subseg_cat_data = {k: list(v) for k, v in SUBSEGMENT_CATEGORIES.items()}
 
     json_data = json.dumps({
         "rows": compact_rows,
@@ -312,6 +331,13 @@ def generate_html(data):
         "instruments": instruments,
         "segments": segments,
         "stages": STAGE_NAMES,
+        "years": years,
+        "types": types,
+        "catalog_products": cat_products,
+        "catalog_instruments": cat_instruments,
+        "subsegments": subseg_data,
+        "subsegment_categories": subseg_cat_data,
+        "csv_headers": CSV_HEADERS,
     }, ensure_ascii=False, default=str, separators=(',', ':'))
 
     html = f"""<!DOCTYPE html>
@@ -483,6 +509,10 @@ td.left {{ text-align: left; }}
     <div class="dd" id="dd-cat"><button class="dd-btn" onclick="toggleDD('dd-cat')">Все</button><div class="dd-list" id="ddl-cat"></div></div></div>
   <div><label>Инструмент</label><br>
     <div class="dd" id="dd-instr"><button class="dd-btn" onclick="toggleDD('dd-instr')">Все</button><div class="dd-list" id="ddl-instr"></div></div></div>
+  <div><label>Год</label><br>
+    <div class="dd" id="dd-god"><button class="dd-btn" onclick="toggleDD('dd-god')">Все</button><div class="dd-list" id="ddl-god"></div></div></div>
+  <div><label>Тип</label><br>
+    <div class="dd" id="dd-tip"><button class="dd-btn" onclick="toggleDD('dd-tip')">Все</button><div class="dd-list" id="ddl-tip"></div></div></div>
   <div style="display:flex;flex-direction:column;gap:8px;justify-content:center">
     <label style="font-size:13px;cursor:pointer"><input type="checkbox" id="f-hide-inactive" onchange="render()" checked> Скрыть неактивные</label>
     <button onclick="clearFilters()" style="padding:4px 12px;font-size:12px;cursor:pointer;border:1px solid var(--border);border-radius:4px;background:#fff">Сбросить фильтры</button></div>
@@ -609,6 +639,16 @@ td.left {{ text-align: left; }}
     <p style="margin-top:8px;color:var(--muted);font-size:12px">Если настроен GitHub Actions — достаточно загрузить data_entry.xlsx через интерфейс GitHub, HTML перегенерируется автоматически.</p>
   </div>
 
+  <div class="info-box">
+    <h3>Справочник продуктов</h3>
+    <div id="help-products"></div>
+  </div>
+
+  <div class="info-box">
+    <h3>Справочник инструментов</h3>
+    <div id="help-instruments"></div>
+  </div>
+
 </div>
 </div><!-- /app-content -->
 
@@ -643,6 +683,7 @@ D.rows.forEach(r => {{
   r.subseg = r.subseg || ''; r.epics = r.epics || ''; r.comment = r.comment || '';
   r.stage = r.stage || 'Не начат'; r.rag = r.rag || '—';
   r.gantt_start = r.gantt_start || null; r.gantt_end = r.gantt_end || null; r.gantt_fact = r.gantt_fact || null;
+  r.god = r.god || ''; r.tip = r.tip || '';
 }});
 const STAGES = D.stages;
 const EPOCH = new Date(2026, 0, 1);
@@ -692,6 +733,8 @@ function initFilters() {{
   buildDD('ddl-prod', D.products, (a,b) => prodOrd(a) - prodOrd(b));
   buildDD('ddl-cat', D.categories);
   buildDD('ddl-instr', D.instruments);
+  buildDD('ddl-god', D.years || []);
+  buildDD('ddl-tip', D.types || []);
 }}
 
 function matchFilter(vals, v) {{
@@ -709,11 +752,15 @@ function getFiltered() {{
   const fp = getDDValues('ddl-prod');
   const fc = getDDValues('ddl-cat');
   const fi = getDDValues('ddl-instr');
+  const fg = getDDValues('ddl-god');
+  const ft = getDDValues('ddl-tip');
   return D.rows.filter(r => {{
     if (!r.active) return false;
     if (!matchFilter(fp, r.prod)) return false;
     if (!matchFilter(fc, r.cat)) return false;
     if (!matchFilter(fi, r.instr)) return false;
+    if (!matchFilter(fg, r.god)) return false;
+    if (!matchFilter(ft, r.tip)) return false;
     return true;
   }});
 }}
@@ -798,10 +845,14 @@ function renderDashboard() {{
   const fp = getDDValues('ddl-prod');
   const fc = getDDValues('ddl-cat');
   const fi = getDDValues('ddl-instr');
+  const fg = getDDValues('ddl-god');
+  const ft = getDDValues('ddl-tip');
   const allRows = D.rows.filter(r => {{
     if (!matchFilter(fp, r.prod)) return false;
     if (!matchFilter(fc, r.cat)) return false;
     if (!matchFilter(fi, r.instr)) return false;
+    if (!matchFilter(fg, r.god)) return false;
+    if (!matchFilter(ft, r.tip)) return false;
     return true;
   }});
   const hideInactive = document.getElementById('f-hide-inactive').checked;
@@ -878,9 +929,9 @@ function renderTimeline() {{
 
     h += '<div style="overflow-x:auto"><table><thead><tr><th>Сегмент</th><th>Подпродукт</th><th>Подсегмент</th><th>Инструмент</th>';
     STAGES.forEach(s => h += `<th colspan="2" class="stage-grp">${{s}}</th>`);
-    h += '<th>Прогресс</th><th>RAG</th></tr><tr><th></th><th></th><th></th><th></th>';
+    h += '<th>Этап</th><th>Прогресс</th><th>RAG</th><th>Сдвиг</th></tr><tr><th></th><th></th><th></th><th></th>';
     STAGES.forEach(() => h += '<th style="font-size:10px">план</th><th style="font-size:10px">факт</th>');
-    h += '<th></th><th></th></tr></thead><tbody>';
+    h += '<th></th><th></th><th></th><th></th></tr></thead><tbody>';
 
     detail.forEach(r => {{
       h += `<tr><td class="left" style="font-weight:600">${{r.seg}}</td>`;
@@ -890,7 +941,7 @@ function renderTimeline() {{
         const fc = r.facts[i] ? 'fact-done' : '';
         h += `<td class="${{pc}}">${{fmtDate(r.plans[i])}}</td><td class="${{fc}}">${{fmtDate(r.facts[i])}}</td>`;
       }}
-      h += `<td>${{progBar(r.progress)}}</td><td class="${{ragClass(r.rag)}}">${{r.rag}}</td></tr>`;
+      h += `<td>${{r.stage}}</td><td>${{progBar(r.progress)}}</td><td class="${{ragClass(r.rag)}}">${{r.rag}}</td><td>${{r.slip !== null ? r.slip : ''}}</td></tr>`;
     }});
     h += '</tbody></table></div>';
 
@@ -912,9 +963,9 @@ function renderTimeline() {{
 
     h += '<table><thead><tr><th>Сегмент</th><th>Инструмент</th>';
     STAGES.forEach(s => h += `<th colspan="2" class="stage-grp">${{s}}</th>`);
-    h += '<th>Прогресс</th><th>RAG</th></tr><tr><th></th><th></th>';
+    h += '<th>Этап</th><th>Прогресс</th><th>RAG</th><th>Сдвиг</th></tr><tr><th></th><th></th>';
     STAGES.forEach(() => h += '<th style="font-size:10px">план</th><th style="font-size:10px">факт</th>');
-    h += '<th></th><th></th></tr></thead><tbody>';
+    h += '<th></th><th></th><th></th><th></th></tr></thead><tbody>';
 
     entries.forEach(g => {{
       const tw = g.items.reduce((s,r) => s + r.weight, 0) || 1;
@@ -931,6 +982,14 @@ function renderTimeline() {{
       const rag = rags.includes('RED') ? 'RED' : rags.includes('AMBER') ? 'AMBER' :
                   rags.every(r => r === 'DONE') && rags.length ? 'DONE' :
                   rags.includes('OK') ? 'OK' : rags.includes('WAIT') ? 'WAIT' : '—';
+      // Aggregated stage: earliest (worst) stage among items
+      const stageOrd = {{'Не начат':0}};
+      STAGES.forEach((s,i) => stageOrd[s] = i + 1);
+      const stageVals = g.items.map(r => stageOrd[r.stage] ?? 0);
+      const aggStage = Object.keys(stageOrd).find(k => stageOrd[k] === Math.min(...stageVals)) || 'Не начат';
+      // Aggregated slip: max (worst) slip
+      const slips = g.items.map(r => r.slip).filter(s => s !== null);
+      const aggSlip = slips.length ? Math.max(...slips) : null;
 
       h += `<tr><td class="left" style="font-weight:600">${{g.seg}}</td><td>${{g.instr}}</td>`;
       STAGES.forEach((_,i) => {{
@@ -938,7 +997,7 @@ function renderTimeline() {{
         const fc = facts[i] ? 'fact-done' : '';
         h += `<td class="${{pc}}">${{fmtDate(plans[i])}}</td><td class="${{fc}}">${{fmtDate(facts[i])}}</td>`;
       }});
-      h += `<td>${{progBar(prog)}}</td><td class="${{ragClass(rag)}}">${{rag}}</td></tr>`;
+      h += `<td>${{aggStage}}</td><td>${{progBar(prog)}}</td><td class="${{ragClass(rag)}}">${{rag}}</td><td>${{aggSlip !== null ? aggSlip : ''}}</td></tr>`;
     }});
     h += '</tbody></table>';
   }}
@@ -1131,15 +1190,17 @@ function renderData() {{
     rows = rows.filter(r => r.plans.some(Boolean) || r.facts.some(Boolean));
   }}
   let h = `<div style="overflow-x:auto;max-width:100%"><table style="min-width:800px"><thead><tr>
-    <th>Продукт</th><th>Подпродукт</th><th>Кат.</th><th>Инструмент</th>
-    <th>Этап</th><th>Прогресс</th><th>RAG</th><th>Сдвиг</th>`;
+    <th>Продукт</th><th>Подпродукт</th><th>Подсегмент</th><th>Кат.</th><th>Инструмент</th>
+    <th>Год</th><th>Тип</th><th>Этап</th><th>Прогресс</th><th>RAG</th><th>Сдвиг</th>`;
   STAGES.forEach(s => h += `<th>${{s}} п</th><th>${{s}} ф</th>`);
   h += `<th>Эпики</th><th>Комментарии</th>
   </tr></thead><tbody>`;
   rows.forEach(r => {{
     h += `<tr>
       <td class="left">${{r.prod}}</td><td class="left">${{r.subprod}}</td>
+      <td>${{r.subseg||''}}</td>
       <td>${{r.cat}}</td><td>${{r.instr}}</td>
+      <td>${{r.god||''}}</td><td>${{r.tip||''}}</td>
       <td>${{r.stage}}</td><td>${{progBar(r.progress)}}</td>
       <td class="${{ragClass(r.rag)}}">${{r.rag}}</td>
       <td>${{r.slip !== null ? r.slip : ''}}</td>`;
@@ -1151,6 +1212,38 @@ function renderData() {{
   }});
   h += '</tbody></table></div>';
   document.getElementById('data-body').innerHTML = h;
+}}
+
+// ── Help catalogs ──
+function renderHelpCatalogs() {{
+  // Products table
+  let hp = '<table><thead><tr><th>Агрегация</th><th>Продукт</th><th>Подпродукт</th><th>Вес агр.</th><th>Вес прод.</th><th>Вес подпрод.</th></tr></thead><tbody>';
+  (D.catalog_products || []).forEach(p => {{
+    hp += `<tr><td>${{p.agg}}</td><td>${{p.prod}}</td><td>${{p.subprod}}</td>`;
+    hp += `<td>${{(p.w_agg*100).toFixed(1)}}%</td><td>${{(p.w_prod*100).toFixed(1)}}%</td>`;
+    hp += `<td>${{(p.w_subprod*100).toFixed(1)}}%</td></tr>`;
+  }});
+  hp += '</tbody></table>';
+  const helpProd = document.getElementById('help-products');
+  if (helpProd) helpProd.innerHTML = hp;
+
+  // Instruments table with year/type from data rows
+  const instrMeta = {{}};
+  D.rows.forEach(r => {{
+    const k = r.igrp + '|' + r.instr;
+    if (!instrMeta[k]) instrMeta[k] = {{ group: r.igrp, instr: r.instr, years: new Set(), types: new Set() }};
+    if (r.god) instrMeta[k].years.add(r.god);
+    if (r.tip) instrMeta[k].types.add(r.tip);
+  }});
+  let hi = '<table><thead><tr><th>Группа</th><th>Инструмент</th><th>Год</th><th>Тип миграции</th></tr></thead><tbody>';
+  Object.values(instrMeta).forEach(m => {{
+    hi += `<tr><td>${{m.group}}</td><td>${{m.instr}}</td>`;
+    hi += `<td>${{[...m.years].sort().join(', ') || '—'}}</td>`;
+    hi += `<td>${{[...m.types].sort().join(', ') || '—'}}</td></tr>`;
+  }});
+  hi += '</tbody></table>';
+  const helpInstr = document.getElementById('help-instruments');
+  if (helpInstr) helpInstr.innerHTML = hi;
 }}
 
 // ── Render all ──
@@ -1242,6 +1335,17 @@ function initEditor() {{
   </div>
 
   <div class="ed-section">
+    <h4>2b. Установить Год / Тип миграции</h4>
+    <div class="ed-actions">
+      <div><label style="font-size:12px;color:var(--muted)">Год</label><br>
+        <select id="ed-god-val"><option value="">—</option><option value="2026">2026</option><option value="2027">2027</option></select></div>
+      <div><label style="font-size:12px;color:var(--muted)">Тип миграции</label><br>
+        <select id="ed-tip-val"><option value="">—</option><option value="старое">старое</option><option value="новое">новое</option></select></div>
+      <button class="ed-btn ed-btn-primary" onclick="edApplyGodTip()">Применить Год/Тип</button>
+    </div>
+  </div>
+
+  <div class="ed-section">
     <h4>3. Установить даты этапа</h4>
     <div class="ed-actions">
       <div><label style="font-size:12px;color:var(--muted)">Этап</label><br>
@@ -1275,12 +1379,35 @@ function initEditor() {{
   </div>
 
   <div class="ed-section">
+    <h4>5. Справочник продуктов</h4>
+    <div id="cat-products-table" style="overflow-x:auto;max-height:300px;overflow-y:auto"></div>
+    <div class="ed-actions" style="margin-top:8px;flex-wrap:wrap">
+      <input id="cat-new-agg" placeholder="Агрегация" style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;width:130px">
+      <input id="cat-new-prod" placeholder="Продукт" style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;width:130px">
+      <input id="cat-new-subprod" placeholder="Подпродукт" style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;width:160px">
+      <button class="ed-btn ed-btn-primary" onclick="catAddProduct()">+ Продукт</button>
+    </div>
+  </div>
+
+  <div class="ed-section">
+    <h4>6. Справочник инструментов</h4>
+    <div id="cat-instruments-table" style="overflow-x:auto;max-height:300px;overflow-y:auto"></div>
+    <div class="ed-actions" style="margin-top:8px">
+      <input id="cat-new-igrp" placeholder="Группа" style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;width:160px">
+      <input id="cat-new-instr" placeholder="Инструмент" style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;width:160px">
+      <button class="ed-btn ed-btn-primary" onclick="catAddInstrument()">+ Инструмент</button>
+    </div>
+  </div>
+
+  <div class="ed-section">
     <h4>Предпросмотр выбранных строк</h4>
     <div class="ed-preview" id="ed-preview"></div>
   </div>`;
 
   // Initial build — will be refreshed dynamically
   edRefreshFilters();
+  catRenderProducts();
+  catRenderInstruments();
 }}
 
 function edRefreshFilters() {{
@@ -1356,12 +1483,13 @@ function edUpdatePreview() {{
   const preview = document.getElementById('ed-preview');
   if (!sel.length) {{ preview.innerHTML = '<p style="color:var(--muted)">Выберите фильтры выше</p>'; return; }}
   const show = sel.slice(0, 100);
-  let h = '<table><thead><tr><th>Продукт</th><th>Подпродукт</th><th>Кат.</th><th>Инструмент</th><th>Активен</th>';
+  let h = '<table><thead><tr><th>Продукт</th><th>Подпродукт</th><th>Кат.</th><th>Инструмент</th><th>Активен</th><th>Год</th><th>Тип</th>';
   STAGES.forEach(s => h += `<th>${{s}} п</th><th>${{s}} ф</th>`);
   h += '</tr></thead><tbody>';
   show.forEach(r => {{
     h += `<tr><td class="left">${{r.prod}}</td><td class="left">${{r.subprod}}</td><td>${{r.cat}}</td><td>${{r.instr}}</td>`;
     h += `<td style="font-weight:600;color:${{r.active?'var(--green)':'var(--muted)'}}">${{r.active?'Да':'Нет'}}</td>`;
+    h += `<td>${{r.god||''}}</td><td>${{r.tip||''}}</td>`;
     for (let i = 0; i < STAGES.length; i++) {{
       h += `<td class="plan-cell">${{fmtDate(r.plans[i])}}</td>`;
       h += `<td class="${{r.facts[i]?'fact-done':''}}">${{fmtDate(r.facts[i])}}</td>`;
@@ -1383,6 +1511,21 @@ function edApplyActive() {{
   edUpdatePreview();
   render();
   alert(`Активен = ${{val}} установлен для ${{sel.length}} строк`);
+}}
+
+function edApplyGodTip() {{
+  const god = document.getElementById('ed-god-val').value;
+  const tip = document.getElementById('ed-tip-val').value;
+  if (!god && !tip) {{ alert('Выберите хотя бы одно значение'); return; }}
+  const sel = edGetSelected();
+  if (!sel.length) {{ alert('Выберите строки'); return; }}
+  sel.forEach(r => {{
+    if (god) r.god = god;
+    if (tip) r.tip = tip;
+  }});
+  edUpdatePreview();
+  render();
+  alert(`Год/Тип обновлены для ${{sel.length}} строк`);
 }}
 
 function edApplyDates() {{
@@ -1421,11 +1564,133 @@ function edClearDates() {{
   alert(`Удалены даты (${{what}}) этапа "${{STAGES[stageIdx]}}" для ${{sel.length}} строк`);
 }}
 
+// ── Catalog management ──
+function makeNewRow(agg, prod, subprod, subseg, cat, igrp, instr) {{
+  return {{
+    agg, prod, subprod, subseg: subseg||'', cat, igrp, instr,
+    seg: prod + ' | ' + cat,
+    active: false, god: '', tip: '',
+    weight: 0, progress: 0, stage: 'Не начат', rag: '—', slip: null,
+    plans: STAGES.map(() => null), facts: STAGES.map(() => null),
+    gantt_start: null, gantt_end: null, gantt_fact: null,
+    epics: '', comment: ''
+  }};
+}}
+
+function catRenderProducts() {{
+  const prods = D.catalog_products || [];
+  let h = '<table style="font-size:12px"><thead><tr><th>Агрегация</th><th>Продукт</th><th>Подпродукт</th><th>Вес агр.</th><th>Вес прод.</th><th>Вес подпрод.</th><th></th></tr></thead><tbody>';
+  prods.forEach((p, idx) => {{
+    h += `<tr><td>${{p.agg}}</td><td>${{p.prod}}</td><td>${{p.subprod}}</td>`;
+    h += `<td>${{(p.w_agg*100).toFixed(1)}}%</td><td>${{(p.w_prod*100).toFixed(1)}}%</td>`;
+    h += `<td>${{(p.w_subprod*100).toFixed(1)}}%</td>`;
+    h += `<td><button style="font-size:11px;color:var(--red);cursor:pointer;border:none;background:none" onclick="catRemoveProduct(${{idx}})">✕</button></td></tr>`;
+  }});
+  h += '</tbody></table>';
+  const el = document.getElementById('cat-products-table');
+  if (el) el.innerHTML = h;
+}}
+
+function catRenderInstruments() {{
+  const instrs = D.catalog_instruments || [];
+  let h = '<table style="font-size:12px"><thead><tr><th>Группа</th><th>Инструмент</th><th></th></tr></thead><tbody>';
+  instrs.forEach((inst, idx) => {{
+    h += `<tr><td>${{inst.group}}</td><td>${{inst.instrument}}</td>`;
+    h += `<td><button style="font-size:11px;color:var(--red);cursor:pointer;border:none;background:none" onclick="catRemoveInstrument(${{idx}})">✕</button></td></tr>`;
+  }});
+  h += '</tbody></table>';
+  const el = document.getElementById('cat-instruments-table');
+  if (el) el.innerHTML = h;
+}}
+
+function catAddProduct() {{
+  const agg = document.getElementById('cat-new-agg').value.trim();
+  const prod = document.getElementById('cat-new-prod').value.trim();
+  const subprod = document.getElementById('cat-new-subprod').value.trim();
+  if (!agg || !prod || !subprod) {{ alert('Заполните Агрегацию, Продукт и Подпродукт'); return; }}
+  // Add to catalog
+  D.catalog_products.push({{agg, prod, subprod, w_agg:0, w_prod:0, w_subprod:0}});
+  // Auto-create DATA rows
+  const cats = D.categories || ['PRE','1','2','3','4'];
+  const instrs = D.catalog_instruments || [];
+  let added = 0;
+  cats.forEach(cat => {{
+    instrs.forEach(inst => {{
+      D.rows.push(makeNewRow(agg, prod, subprod, '', cat, inst.group, inst.instrument));
+      added++;
+    }});
+  }});
+  // Update filter lists
+  if (!D.products.includes(prod)) D.products.push(prod);
+  document.getElementById('cat-new-agg').value = '';
+  document.getElementById('cat-new-prod').value = '';
+  document.getElementById('cat-new-subprod').value = '';
+  catRenderProducts();
+  edRefreshFilters();
+  render();
+  alert(`Добавлен ${{subprod}}: ${{added}} строк создано`);
+}}
+
+function catAddInstrument() {{
+  const group = document.getElementById('cat-new-igrp').value.trim();
+  const instrument = document.getElementById('cat-new-instr').value.trim();
+  if (!group || !instrument) {{ alert('Заполните Группу и Инструмент'); return; }}
+  // Add to catalog
+  D.catalog_instruments.push({{group, instrument}});
+  // Auto-create DATA rows for all products × categories
+  const cats = D.categories || ['PRE','1','2','3','4'];
+  const prods = D.catalog_products || [];
+  let added = 0;
+  prods.forEach(p => {{
+    cats.forEach(cat => {{
+      // Check if rows already exist
+      const exists = D.rows.some(r => r.agg === p.agg && r.prod === p.prod && r.subprod === p.subprod && r.cat === cat && r.instr === instrument);
+      if (!exists) {{
+        D.rows.push(makeNewRow(p.agg, p.prod, p.subprod, '', cat, group, instrument));
+        added++;
+      }}
+    }});
+  }});
+  if (!D.instruments.includes(instrument)) D.instruments.push(instrument);
+  document.getElementById('cat-new-igrp').value = '';
+  document.getElementById('cat-new-instr').value = '';
+  catRenderInstruments();
+  edRefreshFilters();
+  render();
+  alert(`Добавлен ${{instrument}}: ${{added}} строк создано`);
+}}
+
+function catRemoveProduct(idx) {{
+  const p = D.catalog_products[idx];
+  if (!p) return;
+  const matching = D.rows.filter(r => r.agg === p.agg && r.prod === p.prod && r.subprod === p.subprod);
+  if (!confirm(`Удалить ${{p.subprod}} (${{p.prod}}) и ${{matching.length}} строк данных?`)) return;
+  D.catalog_products.splice(idx, 1);
+  D.rows = D.rows.filter(r => !(r.agg === p.agg && r.prod === p.prod && r.subprod === p.subprod));
+  catRenderProducts();
+  edRefreshFilters();
+  render();
+}}
+
+function catRemoveInstrument(idx) {{
+  const inst = D.catalog_instruments[idx];
+  if (!inst) return;
+  const matching = D.rows.filter(r => r.instr === inst.instrument);
+  if (!confirm(`Удалить ${{inst.instrument}} и ${{matching.length}} строк данных?`)) return;
+  D.catalog_instruments.splice(idx, 1);
+  D.rows = D.rows.filter(r => r.instr !== inst.instrument);
+  D.instruments = D.instruments.filter(i => i !== inst.instrument);
+  catRenderInstruments();
+  edRefreshFilters();
+  render();
+}}
+
 function edBuildXLSX() {{
   const headers = {json.dumps(CSV_HEADERS, ensure_ascii=False)};
   const wsData = [headers];
   D.rows.forEach(r => {{
-    const row = [r.agg, r.prod, r.subprod, r.subseg||'', r.cat, r.igrp, r.instr, r.active ? 'Да' : 'Нет'];
+    const row = [r.agg, r.prod, r.subprod, r.subseg||'', r.cat, r.igrp, r.instr,
+                 r.active ? 'Да' : 'Нет', r.god||'', r.tip||''];
     STAGES.forEach((_, i) => row.push(r.plans[i] || ''));
     STAGES.forEach((_, i) => row.push(r.facts[i] || ''));
     STAGES.forEach(() => row.push(''));  // baseline
@@ -1435,6 +1700,23 @@ function edBuildXLSX() {{
   const ws = XLSX.utils.aoa_to_sheet(wsData);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'DATA');
+
+  // PRODUCTS sheet
+  const prodHeaders = ['Агрегация','Продукт','Подпродукт','Вес_агр','Вес_прод','Вес_подпрод'];
+  const prodData = [prodHeaders];
+  (D.catalog_products || []).forEach(p => {{
+    prodData.push([p.agg, p.prod, p.subprod, p.w_agg, p.w_prod, p.w_subprod]);
+  }});
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(prodData), 'PRODUCTS');
+
+  // INSTRUMENTS sheet
+  const instrHeaders = ['Группа','Инструмент'];
+  const instrData = [instrHeaders];
+  (D.catalog_instruments || []).forEach(inst => {{
+    instrData.push([inst.group, inst.instrument]);
+  }});
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(instrData), 'INSTRUMENTS');
+
   return wb;
 }}
 
@@ -1510,6 +1792,7 @@ document.addEventListener('keydown', e => {{
 
 initFilters();
 initTabControls();
+renderHelpCatalogs();
 render();
 </script>
 </body>
@@ -1552,7 +1835,7 @@ def main():
     data = compute(rows, products)
 
     print("Generating HTML dashboard...")
-    generate_html(data)
+    generate_html(data, products, instruments)
     print("Done!")
 
 if __name__ == "__main__":
