@@ -25,7 +25,8 @@ OUTPUT = ROADMAP_DIR / "Roadmap_Переезд.xlsx"
 
 # ── Constants ─────────────────────────────────────────────────────────
 CATEGORIES = ["PRE", "1", "2", "3", "4"]
-STAGES = [("ИТ", 0.10), ("1%", 0.20), ("5%", 0.40), ("50%", 0.75), ("100%", 1.00)]
+STAGES = [("Разработка", 0.05), ("ИТ", 0.30), ("Выкатка на прод", 0.40),
+          ("1%", 0.50), ("5%", 0.60), ("50%", 0.70), ("100%", 1.00)]
 SUBSEGMENTS = [("Обычная (все грейсы)", [("до 200к", 0.5), ("свыше 200к", 0.5)])]
 
 # Column indices (0-based) for DATA sheet — grouped logically
@@ -566,9 +567,9 @@ def create_category_dashboards(wb, products, instruments):
 
 # ── Timeline (stage-based) ────────────────────────────────────────────
 
-STAGE_NAMES = ["ИТ", "1%", "5%", "50%", "100%"]
-PLAN_COLS_TBL = ["ИТ план", "1% план", "5% план", "50% план", "100% план"]
-FACT_COLS_TBL = ["ИТ факт", "1% факт", "5% факт", "50% факт", "100% факт"]
+STAGE_NAMES = [s[0] for s in STAGES]
+PLAN_COLS_TBL = [f"{s} план" for s in STAGE_NAMES]
+FACT_COLS_TBL = [f"{s} факт" for s in STAGE_NAMES]
 
 def create_timeline(wb, products, instruments):
     ws = wb.create_sheet("Timeline"); ws.sheet_properties.tabColor = "7030A0"
@@ -588,9 +589,9 @@ def create_timeline(wb, products, instruments):
         c = ws.cell(HR, ci+1, h); c.font = hs["font"]; c.fill = hs["fill"]; c.alignment = hs["alignment"]
         ws.column_dimensions[cl(ci)].width = w
 
-    # Stage columns: 5 stages × 2 (план/факт) = columns F-O
+    # Stage columns: 7 stages × 2 (план/факт)
     SCOL = 5  # 0-based index of first stage column (F)
-    stage_colors = ["B4C6E7", "C5E0B4", "FFE699", "F8CBAD", "D6A4D6"]
+    stage_colors = ["B4C6E7", "A9D18E", "C5E0B4", "FFE699", "F8CBAD", "D6A4D6", "FF9999"]
     for si, sname in enumerate(STAGE_NAMES):
         pc = SCOL + si * 2      # plan column 0-based
         fc = SCOL + si * 2 + 1  # fact column 0-based
@@ -606,8 +607,8 @@ def create_timeline(wb, products, instruments):
             c.fill = _fill(HDR_BG); c.alignment = Alignment(horizontal="center")
             ws.column_dimensions[cl(sub_ci)].width = 11
 
-    # Summary columns (P-R) after 10 stage columns
-    SUMCOL = SCOL + 10  # 0-based = 15
+    # Summary columns after stage columns (7 stages × 2 = 14)
+    SUMCOL = SCOL + len(STAGE_NAMES) * 2
     for si, (h, w, nf) in enumerate([("Прогресс %",11,'0%'), ("RAG",7,None), ("Сдвиг",11,'0')]):
         ci = SUMCOL + si
         c = ws.cell(HR, ci+1, h); c.font = hs["font"]; c.fill = hs["fill"]; c.alignment = hs["alignment"]
@@ -635,7 +636,7 @@ def create_timeline(wb, products, instruments):
               f'tblData[Инструмент],E{r},tblData[Активен],"Да"')
 
         # Stage date pairs: plan (MINIFS) and fact (MAXIFS) for each stage
-        for si in range(5):
+        for si in range(len(STAGE_NAMES)):
             pc = SCOL + si * 2      # plan col 0-based
             fc = SCOL + si * 2 + 1  # fact col 0-based
             plan_tbl = PLAN_COLS_TBL[si]
@@ -667,7 +668,7 @@ def create_timeline(wb, products, instruments):
     LAST_COL = SUMCOL + 2  # 0-based index of last column (RAG+1=Сдвиг is SUMCOL+2)
 
     # Conditional formatting — fact date cells: green when non-empty
-    for si in range(5):
+    for si in range(len(STAGE_NAMES)):
         fc = SCOL + si * 2 + 1  # fact col 0-based
         fact_rng = f"{cl(fc)}{HR+1}:{cl(fc)}{last_r}"
         ws.conditional_formatting.add(fact_rng,
