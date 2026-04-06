@@ -25,27 +25,35 @@ OUTPUT = ROADMAP_DIR / "Roadmap_Переезд.xlsx"
 
 # ── Constants ─────────────────────────────────────────────────────────
 CATEGORIES = ["PRE", "1", "2", "3", "4"]
-STAGES = [("Разработка", 0.05), ("ИТ", 0.30), ("Выкатка на прод", 0.40),
+STAGES = [("Разработка", 0.05), ("e2e", 0.30), ("e2e OK", 0.40),
           ("1%", 0.50), ("5%", 0.60), ("50%", 0.70), ("100%", 1.00)]
 SUBSEGMENTS = [("Обычная (все грейсы)", [("до 200к", 0.5), ("свыше 200к", 0.5)])]
 
 # Column indices (0-based) for DATA sheet — grouped logically
+_N_STAGES = len(STAGES)  # 7
+
 class C:
     # Group 0: ID (A-I) — always visible, frozen
     AGG=0; PROD=1; SUBPROD=2; SUBSEG=3; CAT=4; SEG=5; IGRP=6; INSTR=7; ACTIVE=8
-    # Group 1: Plan dates (J-N)
-    IT_P=9; P1_P=10; P5_P=11; P50_P=12; P100_P=13
-    # Group 2: Fact dates (O-S)
-    IT_F=14; P1_F=15; P5_F=16; P50_F=17; P100_F=18
-    # Group 3: Status (T-V) — formulas
-    CUR=19; PROG=20; RAG=21
-    # Group 4: Analysis (W-AA) — formulas, collapsed
-    NEXT=22; SLIP=23; WABS=24; WSTAT=25; DATOK=26
-    # Group 5: Baseline (AB-AF) — hidden
-    IT_BL=27; P1_BL=28; P5_BL=29; P50_BL=30; P100_BL=31
-    # Group 6: Notes (AG-AI) — collapsed
-    EPICS=32; COMMENT=33; UPDATED=34
-    TOTAL = 35
+    # Group 1: Plan dates — 7 stages
+    DEV_P=9; E2E_P=10; E2E_OK_P=11; P1_P=12; P5_P=13; P50_P=14; P100_P=15
+    # Group 2: Fact dates — 7 stages
+    DEV_F=16; E2E_F=17; E2E_OK_F=18; P1_F=19; P5_F=20; P50_F=21; P100_F=22
+    # Group 3: Status — formulas
+    CUR=23; PROG=24; RAG=25
+    # Group 4: Analysis — formulas, collapsed
+    NEXT=26; SLIP=27; WABS=28; WSTAT=29; DATOK=30
+    # Group 5: Baseline — 7 stages, hidden
+    DEV_BL=31; E2E_BL=32; E2E_OK_BL=33; P1_BL=34; P5_BL=35; P50_BL=36; P100_BL=37
+    # Group 6: Notes — collapsed
+    EPICS=38; COMMENT=39; UPDATED=40
+    TOTAL = 41
+
+# Ordered lists for iteration
+_PLAN_COLS = [C.DEV_P, C.E2E_P, C.E2E_OK_P, C.P1_P, C.P5_P, C.P50_P, C.P100_P]
+_FACT_COLS = [C.DEV_F, C.E2E_F, C.E2E_OK_F, C.P1_F, C.P5_F, C.P50_F, C.P100_F]
+_BASE_COLS = [C.DEV_BL, C.E2E_BL, C.E2E_OK_BL, C.P1_BL, C.P5_BL, C.P50_BL, C.P100_BL]
+_STAGE_NAMES_LEGACY = [s[0] for s in STAGES]
 
 def cl(i):
     """0-based index → Excel column letter."""
@@ -79,18 +87,10 @@ DATA_COLS = [
     ("Группа инструмента",  20, None,     False, None),
     ("Инструмент",          22, None,     False, None),
     ("Активен",              9, None,     False, None),
-    # Group 1: Plan dates (J-N)
-    ("ИТ план",             11, BLUE_H,   False, 'DD.MM.YY'),
-    ("1% план",             11, BLUE_H,   False, 'DD.MM.YY'),
-    ("5% план",             11, BLUE_H,   False, 'DD.MM.YY'),
-    ("50% план",            11, BLUE_H,   False, 'DD.MM.YY'),
-    ("100% план",           11, BLUE_H,   False, 'DD.MM.YY'),
-    # Group 2: Fact dates (O-S)
-    ("ИТ факт",             11, GREEN_H,  False, 'DD.MM.YY'),
-    ("1% факт",             11, GREEN_H,  False, 'DD.MM.YY'),
-    ("5% факт",             11, GREEN_H,  False, 'DD.MM.YY'),
-    ("50% факт",            11, GREEN_H,  False, 'DD.MM.YY'),
-    ("100% факт",           11, GREEN_H,  False, 'DD.MM.YY'),
+    # Group 1: Plan dates
+    *[(f"{s} план",         11, BLUE_H,   False, 'DD.MM.YY') for s in _STAGE_NAMES_LEGACY],
+    # Group 2: Fact dates
+    *[(f"{s} факт",         11, GREEN_H,  False, 'DD.MM.YY') for s in _STAGE_NAMES_LEGACY],
     # Group 3: Status (T-V)
     ("Текущий этап",        13, GRAY_H,   True,  None),
     ("Прогресс %",          11, GRAY_H,   True,  '0%'),
@@ -101,12 +101,8 @@ DATA_COLS = [
     ("Вес абс",              9, GRAY_H,   True,  '0.00%'),
     ("Статус веса",         10, GRAY_H,   True,  None),
     ("Порядок дат ОК",      13, GRAY_H,   True,  None),
-    # Group 5: Baseline (AB-AF) — hidden
-    ("ИТ baseline",         11, YELLOW_H, False, 'DD.MM.YY'),
-    ("1% baseline",         11, YELLOW_H, False, 'DD.MM.YY'),
-    ("5% baseline",         11, YELLOW_H, False, 'DD.MM.YY'),
-    ("50% baseline",        11, YELLOW_H, False, 'DD.MM.YY'),
-    ("100% baseline",       11, YELLOW_H, False, 'DD.MM.YY'),
+    # Group 5: Baseline — hidden
+    *[(f"{s} baseline",     11, YELLOW_H, False, 'DD.MM.YY') for s in _STAGE_NAMES_LEGACY],
     # Group 6: Notes (AG-AI) — collapsed
     ("Эпики",               30, None,     False, None),
     ("Комментарии",         25, None,     False, None),
@@ -293,39 +289,50 @@ def _f_wstatus(r):
     return f'=IFERROR(XLOOKUP({k},tblProducts[Ключ],tblProducts[Статус веса],"?"),"?")'
 
 def _f_stage(r):
-    u,s,q,o,m = cl(C.P100_F), cl(C.P50_F), cl(C.P5_F), cl(C.P1_F), cl(C.IT_F)
-    return f'=IF({u}{r}<>"","100%",IF({s}{r}<>"","50%",IF({q}{r}<>"","5%",IF({o}{r}<>"","1%",IF({m}{r}<>"","ИТ","Не начат")))))'
+    # Nested IF: check from last stage backwards
+    formula = '"Не начат"'
+    for i in range(_N_STAGES):
+        f_col = cl(_FACT_COLS[i])
+        name = _STAGE_NAMES_LEGACY[i]
+        formula = f'IF({f_col}{r}<>"","{name}",{formula})'
+    return f'={formula}'
 
 def _f_progress(r):
     return f'=IFERROR(XLOOKUP({cl(C.CUR)}{r},tblStages[Этап],tblStages[Вес прогресса],0),0)'
 
 def _f_next(r):
-    m,o,q,s,u = cl(C.IT_F),cl(C.P1_F),cl(C.P5_F),cl(C.P50_F),cl(C.P100_F)
-    k,n,p,rr,t = cl(C.IT_P),cl(C.P1_P),cl(C.P5_P),cl(C.P50_P),cl(C.P100_P)
-    return f'=IF({m}{r}="",{k}{r},IF({o}{r}="",{n}{r},IF({q}{r}="",{p}{r},IF({s}{r}="",{rr}{r},IF({u}{r}="",{t}{r},"")))))'
+    # Find next unfilled fact → return its plan date
+    formula = '""'
+    for i in range(_N_STAGES - 1, -1, -1):
+        f_col = cl(_FACT_COLS[i])
+        p_col = cl(_PLAN_COLS[i])
+        formula = f'IF({f_col}{r}="",{p_col}{r},{formula})'
+    return f'={formula}'
 
 def _f_slip(r):
-    m,o,q,s,u = cl(C.IT_F),cl(C.P1_F),cl(C.P5_F),cl(C.P50_F),cl(C.P100_F)
-    k,n,p,rr,t = cl(C.IT_P),cl(C.P1_P),cl(C.P5_P),cl(C.P50_P),cl(C.P100_P)
-    v,w,x,y,z = cl(C.IT_BL),cl(C.P1_BL),cl(C.P5_BL),cl(C.P50_BL),cl(C.P100_BL)
+    # For the next unfilled stage: plan - baseline (slippage)
     nx = cl(C.NEXT)
-    return (f'=IF({nx}{r}=""," ",'
-            f'IF({m}{r}="",IF(AND({k}{r}<>"",{v}{r}<>""),{k}{r}-{v}{r},""),'
-            f'IF({o}{r}="",IF(AND({n}{r}<>"",{w}{r}<>""),{n}{r}-{w}{r},""),'
-            f'IF({q}{r}="",IF(AND({p}{r}<>"",{x}{r}<>""),{p}{r}-{x}{r},""),'
-            f'IF({s}{r}="",IF(AND({rr}{r}<>"",{y}{r}<>""),{rr}{r}-{y}{r},""),'
-            f'IF({u}{r}="",IF(AND({t}{r}<>"",{z}{r}<>""),{t}{r}-{z}{r},""),""))))))')
+    formula = '""'
+    for i in range(_N_STAGES - 1, -1, -1):
+        f_col = cl(_FACT_COLS[i])
+        p_col = cl(_PLAN_COLS[i])
+        b_col = cl(_BASE_COLS[i])
+        formula = f'IF({f_col}{r}="",IF(AND({p_col}{r}<>"",{b_col}{r}<>""),{p_col}{r}-{b_col}{r},""),{formula})'
+    return f'=IF({nx}{r}=""," ",{formula})'
 
 def _f_rag(r):
-    u, ad = cl(C.P100_F), cl(C.SLIP)
-    return f'=IF({u}{r}<>"","DONE",IF(OR({ad}{r}="",{ad}{r}=" "),"—",IF({ad}{r}>14,"RED",IF({ad}{r}>0,"AMBER","GREEN"))))'
+    last_f = cl(_FACT_COLS[-1])
+    ad = cl(C.SLIP)
+    return f'=IF({last_f}{r}<>"","DONE",IF(OR({ad}{r}="",{ad}{r}=" "),"—",IF({ad}{r}>14,"RED",IF({ad}{r}>0,"AMBER","GREEN"))))'
 
 def _f_datok(r):
-    m,o,q,s,u = cl(C.IT_F),cl(C.P1_F),cl(C.P5_F),cl(C.P50_F),cl(C.P100_F)
-    return (f'=AND(IF(AND({m}{r}<>"",{o}{r}<>""),{m}{r}<={o}{r},TRUE),'
-            f'IF(AND({o}{r}<>"",{q}{r}<>""),{o}{r}<={q}{r},TRUE),'
-            f'IF(AND({q}{r}<>"",{s}{r}<>""),{q}{r}<={s}{r},TRUE),'
-            f'IF(AND({s}{r}<>"",{u}{r}<>""),{s}{r}<={u}{r},TRUE))')
+    # Check that fact dates are in chronological order
+    parts = []
+    for i in range(_N_STAGES - 1):
+        a = cl(_FACT_COLS[i])
+        b = cl(_FACT_COLS[i + 1])
+        parts.append(f'IF(AND({a}{r}<>"",{b}{r}<>""),{a}{r}<={b}{r},TRUE)')
+    return f'=AND({",".join(parts)})'
 
 FORMULA_MAP = {
     C.SEG: _f_segment, C.WABS: _f_weight, C.WSTAT: _f_wstatus,
@@ -373,11 +380,11 @@ def create_data(wb, products, instruments):
     t.tableStyleInfo = TableStyleInfo(name="TableStyleLight1", showRowStripes=True)
     ws.add_table(t)
 
-    ws.freeze_panes = f"{cl(C.IT_P)}2"  # freeze after ID group
+    ws.freeze_panes = f"{cl(C.DEV_P)}2"  # freeze after ID group
 
     # Column groups (outline collapse/expand)
     ws.column_dimensions.group(cl(C.NEXT), cl(C.DATOK), hidden=True)     # Analysis — collapsed
-    ws.column_dimensions.group(cl(C.IT_BL), cl(C.P100_BL), hidden=True)  # Baseline — hidden
+    ws.column_dimensions.group(cl(C.DEV_BL), cl(C.P100_BL), hidden=True)  # Baseline — hidden
     ws.column_dimensions.group(cl(C.EPICS), cl(C.UPDATED), hidden=True)  # Notes — collapsed
 
     # Validation
@@ -386,8 +393,7 @@ def create_data(wb, products, instruments):
     dv2 = DataValidation(type="list", formula1='"Да,Нет"', allow_blank=False, errorStyle="stop")
     dv2.add(f"{cl(C.ACTIVE)}2:{cl(C.ACTIVE)}{lr}"); ws.add_data_validation(dv2)
 
-    for di in [C.IT_P,C.IT_F,C.P1_P,C.P1_F,C.P5_P,C.P5_F,C.P50_P,C.P50_F,C.P100_P,C.P100_F,
-               C.IT_BL,C.P1_BL,C.P5_BL,C.P50_BL,C.P100_BL]:
+    for di in _PLAN_COLS + _FACT_COLS + _BASE_COLS:
         d = DataValidation(type="date", operator="between", formula1="2025-01-01", formula2="2028-12-31",
                            allow_blank=True, errorStyle="warning")
         d.add(f"{cl(di)}2:{cl(di)}{lr}"); ws.add_data_validation(d)

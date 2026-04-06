@@ -18,7 +18,7 @@ from generate_roadmap import (parse_products, parse_instruments,
                                CATEGORIES, SUBSEGMENTS, ROADMAP_DIR)
 
 # 7-stage pipeline
-STAGES = [("Разработка", 0.05), ("ИТ", 0.30), ("Выкатка на прод", 0.40),
+STAGES = [("Разработка", 0.05), ("e2e", 0.30), ("e2e OK", 0.40),
           ("1%", 0.50), ("5%", 0.60), ("50%", 0.70), ("100%", 1.00)]
 
 # Instruments removed from the model
@@ -229,11 +229,11 @@ def compute(rows, products):
         r["plans"] = [_d2iso(d) for d in plans]
         r["facts"] = [_d2iso(d) for d in facts]
 
-        # Stage & progress — each fact = completion of that phase
-        # Разработка факт → 5% (dev started)
-        # ИТ факт → 30% (dev done, testing started)
-        # Выкатка на прод факт → 40% (testing done, deploying to prod)
-        # 1% факт → 50%, 5% → 60%, 50% → 70%, 100% → 100%
+        # Stage & progress — weight of last stage with filled fact
+        # Разработка → 5% (dev started)
+        # e2e → 30% (dev done, testing started)
+        # e2e OK → 40% (testing passed, ready for rollout)
+        # 1% → 50%, 5% → 60%, 50% → 70%, 100% → 100%
         stage = "Не начат"
         n_stages = len(STAGES)
         for i in range(n_stages - 1, -1, -1):
@@ -603,8 +603,8 @@ td.left {{ text-align: left; }}
     <table>
       <tr><th style="text-align:left;width:200px">Этап</th><th style="text-align:left;width:80px">Вес</th><th style="text-align:left">Пояснение</th></tr>
       <tr><td class="left">Разработка</td><td>5%</td><td class="left">Начало бизнес-анализа и разработки</td></tr>
-      <tr><td class="left">ИТ</td><td>30%</td><td class="left">Разработка завершена, интеграционное тестирование начато</td></tr>
-      <tr><td class="left">Выкатка на прод</td><td>40%</td><td class="left">Тестирование завершено, заводим на проде</td></tr>
+      <tr><td class="left">e2e</td><td>30%</td><td class="left">Разработка завершена, интеграционное тестирование начато</td></tr>
+      <tr><td class="left">e2e OK</td><td>40%</td><td class="left">Интеграционное тестирование пройдено, готовы к раскатке</td></tr>
       <tr><td class="left">1% раскатка</td><td>50%</td><td class="left">Пилот на 1% трафика</td></tr>
       <tr><td class="left">5% раскатка</td><td>60%</td><td class="left">Расширение пилота</td></tr>
       <tr><td class="left">50% раскатка</td><td>70%</td><td class="left">Половина трафика на новой архитектуре</td></tr>
@@ -833,7 +833,7 @@ function renderKPIs() {{
   const red = rows.filter(r => r.rag === 'RED').length;
   const done = rows.filter(r => r.rag === 'DONE').length;
   document.getElementById('kpis').innerHTML = `
-    <div class="kpi"><div class="val">${{fmtPct(prog)}}</div><div class="lbl">Прогресс <span class="info-tip" title="Среднее по ячейкам Dashboard (сегмент × инструмент). Каждая ячейка равна, внутри — взвешено по подпродуктам. Этапы: Разработка 5%, ИТ 30%, Выкатка на прод 40%, 1%→50%, 5%→60%, 50%→70%, 100%→100%">ⓘ</span></div></div>
+    <div class="kpi"><div class="val">${{fmtPct(prog)}}</div><div class="lbl">Прогресс <span class="info-tip" title="Среднее по ячейкам Dashboard (сегмент × инструмент). Каждая ячейка равна, внутри — взвешено по подпродуктам. Этапы: Разработка 5%, e2e 30%, e2e OK 40%, 1%→50%, 5%→60%, 50%→70%, 100%→100%">ⓘ</span></div></div>
     <div class="kpi"><div class="val">${{rows.length}}</div><div class="lbl">Активных <span class="info-tip" title="Количество строк с Активен=Да, прошедших через текущие фильтры">ⓘ</span></div></div>
     <div class="kpi red"><div class="val">${{red}}</div><div class="lbl">RED <span class="info-tip" title="Ближайший плановый этап просрочен более чем на 14 дней (план vs сегодня)">ⓘ</span></div></div>
     <div class="kpi green"><div class="val">${{done}}</div><div class="lbl">DONE <span class="info-tip" title="Все 6 этапов завершены — фактическая дата 100% заполнена">ⓘ</span></div></div>
