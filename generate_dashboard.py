@@ -21,8 +21,54 @@ from generate_roadmap import (parse_products, parse_instruments,
 STAGES = [("Разработка", 0.05), ("e2e", 0.30), ("e2e OK", 0.40),
           ("1%", 0.50), ("5%", 0.60), ("50%", 0.70), ("100%", 1.00)]
 
-# Instruments removed from the model
-EXCLUDED_INSTRUMENTS = {"Вход", "Звонки Вход", "Чаты", "Выезды Legal", "Модуль реструктуризации"}
+# Instruments removed from the model (legacy — pre-2026-04-09 taxonomy)
+EXCLUDED_INSTRUMENTS = {"Вход", "Выезды Legal", "Модуль реструктуризации"}
+
+# Full instrument taxonomy (7 groups, 30 instruments) — overrides Confluence parse
+# is_base_2026 = included in the "base 2026 plan" (default filter on Dashboard/Timeline/Гант)
+# is_opt_2026  = included in the "optimistic 2026 plan" (to be filled later)
+INSTRUMENTS_OVERRIDE = [
+    # 1. Звонки
+    dict(group="Звонки", instrument="Звонки Исход",        is_base_2026=True,  is_opt_2026=False),
+    dict(group="Звонки", instrument="Звонки Вход",         is_base_2026=False, is_opt_2026=False),
+    # 2. Чаты
+    dict(group="Чаты",   instrument="Чаты Исход",          is_base_2026=False, is_opt_2026=False),
+    dict(group="Чаты",   instrument="Чаты Вход",           is_base_2026=False, is_opt_2026=False),
+    # 3. Бренд-коммуникации
+    dict(group="Бренд-коммуникации", instrument="СМС батч",             is_base_2026=True,  is_opt_2026=False),
+    dict(group="Бренд-коммуникации", instrument="СМС обещание",         is_base_2026=True,  is_opt_2026=False),
+    dict(group="Бренд-коммуникации", instrument="СМС триггер",          is_base_2026=True,  is_opt_2026=False),
+    dict(group="Бренд-коммуникации", instrument="Self-Service",         is_base_2026=False, is_opt_2026=False),
+    dict(group="Бренд-коммуникации", instrument="Мобильный банк (экраны)", is_base_2026=False, is_opt_2026=False),
+    dict(group="Бренд-коммуникации", instrument="Истории/Баннеры",      is_base_2026=True,  is_opt_2026=False),
+    dict(group="Бренд-коммуникации", instrument="Бумажные письма - Soft", is_base_2026=True,  is_opt_2026=False),
+    dict(group="Бренд-коммуникации", instrument="Центр уведомлений",    is_base_2026=True,  is_opt_2026=False),
+    dict(group="Бренд-коммуникации", instrument="e-mail Батч",          is_base_2026=False, is_opt_2026=False),
+    # 4. Выезды
+    dict(group="Выезды", instrument="АПД",                       is_base_2026=True,  is_opt_2026=False),
+    dict(group="Выезды", instrument="CarSearch",                 is_base_2026=True,  is_opt_2026=False),
+    dict(group="Выезды", instrument="Выезды для реализации",     is_base_2026=True,  is_opt_2026=False),
+    dict(group="Выезды", instrument="Выезды для Legal",          is_base_2026=False, is_opt_2026=False),
+    dict(group="Выезды", instrument="ФХД SME",                   is_base_2026=False, is_opt_2026=False),
+    dict(group="Выезды", instrument="Коллекторские выезды",      is_base_2026=False, is_opt_2026=False),
+    # 5. Реструктуризация
+    dict(group="Реструктуризация", instrument="Бизнес-программы",       is_base_2026=False, is_opt_2026=False),
+    dict(group="Реструктуризация", instrument="Государственные программы", is_base_2026=False, is_opt_2026=False),
+    # 6. Реализация
+    dict(group="Реализация", instrument="ДРЗ авто",              is_base_2026=False, is_opt_2026=False),
+    dict(group="Реализация", instrument="ДРЗ недвижимость",      is_base_2026=False, is_opt_2026=False),
+    dict(group="Реализация", instrument="Баланс авто",           is_base_2026=False, is_opt_2026=False),
+    dict(group="Реализация", instrument="Баланс недвижимость",   is_base_2026=False, is_opt_2026=False),
+    # 7. Платежные сервисы
+    dict(group="Платежные сервисы", instrument="Автоплатежи (с2с+СБП)", is_base_2026=False, is_opt_2026=False),
+    dict(group="Платежные сервисы", instrument="Кредитные блокировки",  is_base_2026=False, is_opt_2026=False),
+    dict(group="Платежные сервисы", instrument="Списание малых недоплат", is_base_2026=False, is_opt_2026=False),
+    dict(group="Платежные сервисы", instrument="Joint Collection",      is_base_2026=False, is_opt_2026=False),
+    dict(group="Платежные сервисы", instrument="Аресты",                is_base_2026=False, is_opt_2026=False),
+]
+
+# Lookup: instrument name → is_base_2026 flag
+INSTRUMENT_BASE_2026 = {i["instrument"]: i["is_base_2026"] for i in INSTRUMENTS_OVERRIDE}
 
 # Нерезиденты subproducts (replace single entry from Confluence)
 NEREZIDENTY_SUBPRODUCTS = [
@@ -50,7 +96,7 @@ PLAN_COLS = [f"{s} план" for s in STAGE_NAMES]
 FACT_COLS = [f"{s} факт" for s in STAGE_NAMES]
 BASE_COLS = [f"{s} baseline" for s in STAGE_NAMES]
 CSV_HEADERS = (["Агрегация","Продукт","Подпродукт","Подсегмент","Категория ПЗ",
-                "Группа инструмента","Инструмент","Активен","Год","Тип миграции"]
+                "Группа инструмента","Инструмент","Активен"]
                + PLAN_COLS + FACT_COLS + BASE_COLS + ["Эпики","Комментарии"])
 
 # ── XLSX Entry ───────────────────────────────────────────────────────
@@ -117,15 +163,9 @@ def generate_entry_xlsx(products, instruments):
     # Data validation: Активен = Да/Нет
     dv = DataValidation(type="list", formula1='"Да,Нет"', allow_blank=False)
     dv.add(f"H2:H{row_n-1}"); ws.add_data_validation(dv)
-    # Data validation: Год = 2026/2027
-    dv_god = DataValidation(type="list", formula1='"2026,2027"', allow_blank=True)
-    dv_god.add(f"I2:I{row_n-1}"); ws.add_data_validation(dv_god)
-    # Data validation: Тип миграции = старое/новое
-    dv_tip = DataValidation(type="list", formula1='"старое,новое"', allow_blank=True)
-    dv_tip.add(f"J2:J{row_n-1}"); ws.add_data_validation(dv_tip)
 
     # Freeze + AutoFilter
-    ws.freeze_panes = "K2"
+    ws.freeze_panes = "I2"
     last_col = openpyxl.utils.get_column_letter(len(CSV_HEADERS))
     ws.auto_filter.ref = f"A1:{last_col}{row_n-1}"
 
@@ -212,8 +252,6 @@ def compute(rows, products):
         r["active"] = row.get("Активен", "").strip().lower() in ("да", "yes", "1")
         r["epics"] = row.get("Эпики", "")
         r["comment"] = row.get("Комментарии", "")
-        r["god"] = row.get("Год", "") or ""
-        r["tip"] = row.get("Тип миграции", "") or ""
 
         # Weight
         k = f'{r["agg"]}|{r["prod"]}|{r["subprod"]}'
@@ -307,20 +345,23 @@ def generate_html(data, products_catalog=None, instruments_catalog=None):
         cr = {k: v for k, v in r.items()
               if v is not None and v != "" and v != [] and v != 0}
         # Always keep key fields
-        for k in ("prod", "subprod", "cat", "instr", "active", "god", "tip"):
+        for k in ("prod", "subprod", "cat", "instr", "active"):
             cr[k] = r[k]
         # Compact plans/facts: only include if any non-null
         cr["plans"] = r["plans"]
         cr["facts"] = r["facts"]
         compact_rows.append(cr)
 
-    years = sorted(set(r["god"] for r in data if r["god"]))
-    types = sorted(set(r["tip"] for r in data if r["tip"]))
     cat_products = [{"agg": p["agg"], "prod": p["prod"], "subprod": p["subprod"],
                      "w_agg": p["w_agg"], "w_prod": p["w_prod"], "w_subprod": p["w_subprod"]}
                     for p in (products_catalog or [])]
-    cat_instruments = [{"group": i["group"], "instrument": i["instrument"]}
+    # Enrich with base/opt flags from INSTRUMENTS_OVERRIDE
+    _by_name = {i["instrument"]: i for i in INSTRUMENTS_OVERRIDE}
+    cat_instruments = [{"group": i["group"], "instrument": i["instrument"],
+                        "is_base_2026": _by_name.get(i["instrument"], {}).get("is_base_2026", False),
+                        "is_opt_2026":  _by_name.get(i["instrument"], {}).get("is_opt_2026",  False)}
                        for i in (instruments_catalog or [])]
+    base_2026_instruments = sorted(i["instrument"] for i in INSTRUMENTS_OVERRIDE if i["is_base_2026"])
     subseg_data = [[sp, segs] for sp, segs in SUBSEGMENTS]
     subseg_cat_data = {k: list(v) for k, v in SUBSEGMENT_CATEGORIES.items()}
 
@@ -332,10 +373,9 @@ def generate_html(data, products_catalog=None, instruments_catalog=None):
         "instruments": instruments,
         "segments": segments,
         "stages": STAGE_NAMES,
-        "years": years,
-        "types": types,
         "catalog_products": cat_products,
         "catalog_instruments": cat_instruments,
+        "base_2026_instruments": base_2026_instruments,
         "subsegments": subseg_data,
         "subsegment_categories": subseg_cat_data,
         "csv_headers": CSV_HEADERS,
@@ -510,11 +550,8 @@ td.left {{ text-align: left; }}
     <div class="dd" id="dd-cat"><button class="dd-btn" onclick="toggleDD('dd-cat')">Все</button><div class="dd-list" id="ddl-cat"></div></div></div>
   <div><label>Инструмент</label><br>
     <div class="dd" id="dd-instr"><button class="dd-btn" onclick="toggleDD('dd-instr')">Все</button><div class="dd-list" id="ddl-instr"></div></div></div>
-  <div><label>Год</label><br>
-    <div class="dd" id="dd-god"><button class="dd-btn" onclick="toggleDD('dd-god')">Все</button><div class="dd-list" id="ddl-god"></div></div></div>
-  <div><label>Тип</label><br>
-    <div class="dd" id="dd-tip"><button class="dd-btn" onclick="toggleDD('dd-tip')">Все</button><div class="dd-list" id="ddl-tip"></div></div></div>
   <div style="display:flex;flex-direction:column;gap:8px;justify-content:center">
+    <label style="font-size:13px;cursor:pointer" title="Показывать только инструменты из базового плана на 2026 год"><input type="checkbox" id="f-base-2026" onchange="render()" checked> Только базовый план 2026</label>
     <label style="font-size:13px;cursor:pointer"><input type="checkbox" id="f-hide-inactive" onchange="render()" checked> Скрыть неактивные</label>
     <button onclick="clearFilters()" style="padding:4px 12px;font-size:12px;cursor:pointer;border:1px solid var(--border);border-radius:4px;background:#fff">Сбросить фильтры</button></div>
   <div style="margin-left:auto;font-size:12px;color:var(--muted)">
@@ -625,6 +662,7 @@ td.left {{ text-align: left; }}
       <li><b>Гант (факт)</b> — если этап завершён, но следующий ещё не начат, бар текущего этапа тянется до сегодняшней даты (идёт работа).</li>
       <li><b>Подсегменты</b> — КК Обычная делится на «до 200к» и «свыше 200к» (вес 50/50). Остальные продукты без подсегментов.</li>
       <li><b>Фильтры</b> — применяются ко всем вкладкам одновременно. Если ничего не выбрано — показываются все. Выбор нескольких = логическое ИЛИ внутри фильтра.</li>
+      <li><b>Базовый план 2026</b> — по умолчанию дашборд показывает только инструменты из базового плана на 2026 год. Чтобы увидеть все 30 инструментов, снимите галочку «Только базовый план 2026» в шапке.</li>
     </ul>
   </div>
 
@@ -648,6 +686,7 @@ td.left {{ text-align: left; }}
 
   <div class="info-box">
     <h3>Справочник инструментов</h3>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:8px">Полный список инструментов (30 шт.) с флагом «базовый план на 2026 год». Зелёный бейдж «базовый» = инструмент входит в базовый план на 2026 и показывается на дашборде по умолчанию.</p>
     <div id="help-instruments"></div>
   </div>
 
@@ -685,7 +724,6 @@ D.rows.forEach(r => {{
   r.subseg = r.subseg || ''; r.epics = r.epics || ''; r.comment = r.comment || '';
   r.stage = r.stage || 'Не начат'; r.rag = r.rag || '—';
   r.gantt_start = r.gantt_start || null; r.gantt_end = r.gantt_end || null; r.gantt_fact = r.gantt_fact || null;
-  r.god = r.god || ''; r.tip = r.tip || '';
 }});
 const STAGES = D.stages;
 const EPOCH = new Date(2026, 0, 1);
@@ -735,8 +773,6 @@ function initFilters() {{
   buildDD('ddl-prod', D.products, (a,b) => prodOrd(a) - prodOrd(b));
   buildDD('ddl-cat', D.categories);
   buildDD('ddl-instr', D.instruments);
-  buildDD('ddl-god', D.years || []);
-  buildDD('ddl-tip', D.types || []);
 }}
 
 function matchFilter(vals, v) {{
@@ -747,22 +783,27 @@ function clearFilters() {{
   document.querySelectorAll('.dd-list input[type=checkbox]').forEach(cb => cb.checked = false);
   document.querySelectorAll('.dd-btn').forEach(b => {{ b.textContent = 'Все'; b.classList.remove('has-selection'); }});
   document.getElementById('f-hide-inactive').checked = false;
+  document.getElementById('f-base-2026').checked = true;
   render();
+}}
+
+const BASE_2026_SET = new Set(D.base_2026_instruments || []);
+
+function isBaseFilterOn() {{
+  return document.getElementById('f-base-2026').checked;
 }}
 
 function getFiltered() {{
   const fp = getDDValues('ddl-prod');
   const fc = getDDValues('ddl-cat');
   const fi = getDDValues('ddl-instr');
-  const fg = getDDValues('ddl-god');
-  const ft = getDDValues('ddl-tip');
+  const baseOnly = isBaseFilterOn();
   return D.rows.filter(r => {{
     if (!r.active) return false;
+    if (baseOnly && !BASE_2026_SET.has(r.instr)) return false;
     if (!matchFilter(fp, r.prod)) return false;
     if (!matchFilter(fc, r.cat)) return false;
     if (!matchFilter(fi, r.instr)) return false;
-    if (!matchFilter(fg, r.god)) return false;
-    if (!matchFilter(ft, r.tip)) return false;
     return true;
   }});
 }}
@@ -784,9 +825,15 @@ const PROD_ORDER = {{
 }};
 const CAT_ORDER = {{'PRE':0,'1':1,'2':2,'3':3,'4':4}};
 const INSTR_ORDER = {{
-  'Звонки Исход':0,'СМС/PUSH':1,'Self-Service':2,'Мобильный банк':3,
-  'Бумажные письма':4,'АПД':5,'CarSearch':6,'Выезды реализации':7,
-  'Реализация':8,'Автоплатежи':9
+  'Звонки Исход':0, 'Звонки Вход':1,
+  'Чаты Исход':2, 'Чаты Вход':3,
+  'СМС батч':4, 'СМС обещание':5, 'СМС триггер':6,
+  'Self-Service':7, 'Мобильный банк (экраны)':8, 'Истории/Баннеры':9,
+  'Бумажные письма - Soft':10, 'Центр уведомлений':11, 'e-mail Батч':12,
+  'АПД':13, 'CarSearch':14, 'Выезды для реализации':15, 'Выезды для Legal':16, 'ФХД SME':17, 'Коллекторские выезды':18,
+  'Бизнес-программы':19, 'Государственные программы':20,
+  'ДРЗ авто':21, 'ДРЗ недвижимость':22, 'Баланс авто':23, 'Баланс недвижимость':24,
+  'Автоплатежи (с2с+СБП)':25, 'Кредитные блокировки':26, 'Списание малых недоплат':27, 'Joint Collection':28, 'Аресты':29
 }};
 function prodOrd(p) {{ return PROD_ORDER[p] ?? 50; }}
 function catOrd(c) {{ return CAT_ORDER[c] ?? 9; }}
@@ -847,14 +894,12 @@ function renderDashboard() {{
   const fp = getDDValues('ddl-prod');
   const fc = getDDValues('ddl-cat');
   const fi = getDDValues('ddl-instr');
-  const fg = getDDValues('ddl-god');
-  const ft = getDDValues('ddl-tip');
+  const baseOnly = isBaseFilterOn();
   const allRows = D.rows.filter(r => {{
+    if (baseOnly && !BASE_2026_SET.has(r.instr)) return false;
     if (!matchFilter(fp, r.prod)) return false;
     if (!matchFilter(fc, r.cat)) return false;
     if (!matchFilter(fi, r.instr)) return false;
-    if (!matchFilter(fg, r.god)) return false;
-    if (!matchFilter(ft, r.tip)) return false;
     return true;
   }});
   const hideInactive = document.getElementById('f-hide-inactive').checked;
@@ -1193,7 +1238,7 @@ function renderData() {{
   }}
   let h = `<div style="overflow-x:auto;max-width:100%"><table style="min-width:800px"><thead><tr>
     <th>Продукт</th><th>Подпродукт</th><th>Подсегмент</th><th>Кат.</th><th>Инструмент</th>
-    <th>Год</th><th>Тип</th><th>Этап</th><th>Прогресс</th><th>RAG</th><th>Сдвиг</th>`;
+    <th>Этап</th><th>Прогресс</th><th>RAG</th><th>Сдвиг</th>`;
   STAGES.forEach(s => h += `<th>${{s}} п</th><th>${{s}} ф</th>`);
   h += `<th>Эпики</th><th>Комментарии</th>
   </tr></thead><tbody>`;
@@ -1202,7 +1247,6 @@ function renderData() {{
       <td class="left">${{r.prod}}</td><td class="left">${{r.subprod}}</td>
       <td>${{r.subseg||''}}</td>
       <td>${{r.cat}}</td><td>${{r.instr}}</td>
-      <td>${{r.god||''}}</td><td>${{r.tip||''}}</td>
       <td>${{r.stage}}</td><td>${{progBar(r.progress)}}</td>
       <td class="${{ragClass(r.rag)}}">${{r.rag}}</td>
       <td>${{r.slip !== null ? r.slip : ''}}</td>`;
@@ -1229,19 +1273,18 @@ function renderHelpCatalogs() {{
   const helpProd = document.getElementById('help-products');
   if (helpProd) helpProd.innerHTML = hp;
 
-  // Instruments table with year/type from data rows
-  const instrMeta = {{}};
-  D.rows.forEach(r => {{
-    const k = r.igrp + '|' + r.instr;
-    if (!instrMeta[k]) instrMeta[k] = {{ group: r.igrp, instr: r.instr, years: new Set(), types: new Set() }};
-    if (r.god) instrMeta[k].years.add(r.god);
-    if (r.tip) instrMeta[k].types.add(r.tip);
-  }});
-  let hi = '<table><thead><tr><th>Группа</th><th>Инструмент</th><th>Год</th><th>Тип миграции</th></tr></thead><tbody>';
-  Object.values(instrMeta).forEach(m => {{
-    hi += `<tr><td>${{m.group}}</td><td>${{m.instr}}</td>`;
-    hi += `<td>${{[...m.years].sort().join(', ') || '—'}}</td>`;
-    hi += `<td>${{[...m.types].sort().join(', ') || '—'}}</td></tr>`;
+  // Instruments table: all 30 instruments with base-2026 flag
+  let hi = '<table><thead><tr><th>Группа</th><th>Инструмент</th><th style="text-align:center">Базовый план 2026</th></tr></thead><tbody>';
+  let lastGrp = '';
+  (D.catalog_instruments || []).forEach(m => {{
+    if (m.group !== lastGrp) {{
+      hi += `<tr><td colspan="3" style="background:var(--yellow);color:#333;font-weight:700;font-size:13px;padding:6px 10px;text-align:left">${{m.group}}</td></tr>`;
+      lastGrp = m.group;
+    }}
+    const badge = m.is_base_2026
+      ? '<span style="background:var(--green-l);color:var(--green);padding:2px 10px;border-radius:10px;font-weight:600;font-size:12px">базовый</span>'
+      : '<span style="color:var(--muted)">—</span>';
+    hi += `<tr><td></td><td class="left">${{m.instrument}}</td><td style="text-align:center">${{badge}}</td></tr>`;
   }});
   hi += '</tbody></table>';
   const helpInstr = document.getElementById('help-instruments');
@@ -1333,17 +1376,6 @@ function initEditor() {{
     <div class="ed-actions">
       <select id="ed-active-val"><option value="">—</option><option value="Да">Да</option><option value="Нет">Нет</option></select>
       <button class="ed-btn ed-btn-primary" onclick="edApplyActive()">Применить Активен</button>
-    </div>
-  </div>
-
-  <div class="ed-section">
-    <h4>2b. Установить Год / Тип миграции</h4>
-    <div class="ed-actions">
-      <div><label style="font-size:12px;color:var(--muted)">Год</label><br>
-        <select id="ed-god-val"><option value="">—</option><option value="2026">2026</option><option value="2027">2027</option></select></div>
-      <div><label style="font-size:12px;color:var(--muted)">Тип миграции</label><br>
-        <select id="ed-tip-val"><option value="">—</option><option value="старое">старое</option><option value="новое">новое</option></select></div>
-      <button class="ed-btn ed-btn-primary" onclick="edApplyGodTip()">Применить Год/Тип</button>
     </div>
   </div>
 
@@ -1485,13 +1517,12 @@ function edUpdatePreview() {{
   const preview = document.getElementById('ed-preview');
   if (!sel.length) {{ preview.innerHTML = '<p style="color:var(--muted)">Выберите фильтры выше</p>'; return; }}
   const show = sel.slice(0, 100);
-  let h = '<table><thead><tr><th>Продукт</th><th>Подпродукт</th><th>Кат.</th><th>Инструмент</th><th>Активен</th><th>Год</th><th>Тип</th>';
+  let h = '<table><thead><tr><th>Продукт</th><th>Подпродукт</th><th>Кат.</th><th>Инструмент</th><th>Активен</th>';
   STAGES.forEach(s => h += `<th>${{s}} п</th><th>${{s}} ф</th>`);
   h += '</tr></thead><tbody>';
   show.forEach(r => {{
     h += `<tr><td class="left">${{r.prod}}</td><td class="left">${{r.subprod}}</td><td>${{r.cat}}</td><td>${{r.instr}}</td>`;
     h += `<td style="font-weight:600;color:${{r.active?'var(--green)':'var(--muted)'}}">${{r.active?'Да':'Нет'}}</td>`;
-    h += `<td>${{r.god||''}}</td><td>${{r.tip||''}}</td>`;
     for (let i = 0; i < STAGES.length; i++) {{
       h += `<td class="plan-cell">${{fmtDate(r.plans[i])}}</td>`;
       h += `<td class="${{r.facts[i]?'fact-done':''}}">${{fmtDate(r.facts[i])}}</td>`;
@@ -1513,21 +1544,6 @@ function edApplyActive() {{
   edUpdatePreview();
   render();
   alert(`Активен = ${{val}} установлен для ${{sel.length}} строк`);
-}}
-
-function edApplyGodTip() {{
-  const god = document.getElementById('ed-god-val').value;
-  const tip = document.getElementById('ed-tip-val').value;
-  if (!god && !tip) {{ alert('Выберите хотя бы одно значение'); return; }}
-  const sel = edGetSelected();
-  if (!sel.length) {{ alert('Выберите строки'); return; }}
-  sel.forEach(r => {{
-    if (god) r.god = god;
-    if (tip) r.tip = tip;
-  }});
-  edUpdatePreview();
-  render();
-  alert(`Год/Тип обновлены для ${{sel.length}} строк`);
 }}
 
 function edApplyDates() {{
@@ -1571,7 +1587,7 @@ function makeNewRow(agg, prod, subprod, subseg, cat, igrp, instr) {{
   return {{
     agg, prod, subprod, subseg: subseg||'', cat, igrp, instr,
     seg: prod + ' | ' + cat,
-    active: false, god: '', tip: '',
+    active: false,
     weight: 0, progress: 0, stage: 'Не начат', rag: '—', slip: null,
     plans: STAGES.map(() => null), facts: STAGES.map(() => null),
     gantt_start: null, gantt_end: null, gantt_fact: null,
@@ -1692,7 +1708,7 @@ function edBuildXLSX() {{
   const wsData = [headers];
   D.rows.forEach(r => {{
     const row = [r.agg, r.prod, r.subprod, r.subseg||'', r.cat, r.igrp, r.instr,
-                 r.active ? 'Да' : 'Нет', r.god||'', r.tip||''];
+                 r.active ? 'Да' : 'Нет'];
     STAGES.forEach((_, i) => row.push(r.plans[i] || ''));
     STAGES.forEach((_, i) => row.push(r.facts[i] || ''));
     STAGES.forEach(() => row.push(''));  // baseline
@@ -1811,10 +1827,8 @@ def main():
 
     print("Parsing Confluence exports...")
     products = parse_products(ROADMAP_DIR / "Продукты+для+переезда.doc")
-    instruments = parse_instruments(ROADMAP_DIR / "Инструменты+для+переезда.doc")
-
-    # Remove excluded instruments
-    instruments = [i for i in instruments if i["instrument"] not in EXCLUDED_INSTRUMENTS]
+    # Instruments: use hardcoded override (new 2026-04-09 taxonomy) instead of Confluence parse
+    instruments = [dict(group=i["group"], instrument=i["instrument"]) for i in INSTRUMENTS_OVERRIDE]
 
     # Replace single-entry products with subproducts
     products = [p for p in products
