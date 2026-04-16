@@ -25,46 +25,47 @@ STAGES = [("Разработка", 0.05), ("e2e", 0.30), ("e2e OK", 0.40),
 EXCLUDED_INSTRUMENTS = {"Вход", "Выезды Legal", "Модуль реструктуризации"}
 
 # Full instrument taxonomy (7 groups, 30 instruments) — overrides Confluence parse
-# is_base_2026 = included in the "base 2026 plan" (default filter on Dashboard/Timeline/Гант)
-# is_opt_2026  = included in the "optimistic 2026 plan" (to be filled later)
+# is_base_2026   = included in the "base 2026 plan" (default filter on Dashboard/Timeline/Гант)
+# is_opt_2026    = included in the "optimistic 2026 plan" (to be filled later)
+# is_anticrisis  = additive label, marks tools used for anti-crisis scenarios (does NOT filter the dashboard)
 INSTRUMENTS_OVERRIDE = [
     # 1. Звонки
-    dict(group="Звонки", instrument="Звонки Исход",        is_base_2026=True,  is_opt_2026=False),
-    dict(group="Звонки", instrument="Звонки Вход",         is_base_2026=False, is_opt_2026=False),
+    dict(group="Звонки", instrument="Звонки Исход",        is_base_2026=True,  is_opt_2026=False, is_anticrisis=True),
+    dict(group="Звонки", instrument="Звонки Вход",         is_base_2026=False, is_opt_2026=False, is_anticrisis=False),
     # 2. Чаты
-    dict(group="Чаты",   instrument="Чаты Исход",          is_base_2026=False, is_opt_2026=False),
-    dict(group="Чаты",   instrument="Чаты Вход",           is_base_2026=False, is_opt_2026=False),
+    dict(group="Чаты",   instrument="Чаты Исход",          is_base_2026=False, is_opt_2026=False, is_anticrisis=False),
+    dict(group="Чаты",   instrument="Чаты Вход",           is_base_2026=False, is_opt_2026=False, is_anticrisis=False),
     # 3. Бренд-коммуникации
-    dict(group="Бренд-коммуникации", instrument="СМС батч",             is_base_2026=True,  is_opt_2026=False),
-    dict(group="Бренд-коммуникации", instrument="СМС обещание",         is_base_2026=True,  is_opt_2026=False),
-    dict(group="Бренд-коммуникации", instrument="СМС триггер",          is_base_2026=True,  is_opt_2026=False),
-    dict(group="Бренд-коммуникации", instrument="Self-Service",         is_base_2026=False, is_opt_2026=False),
-    dict(group="Бренд-коммуникации", instrument="Мобильный банк (экраны)", is_base_2026=False, is_opt_2026=False),
-    dict(group="Бренд-коммуникации", instrument="Истории/Баннеры",      is_base_2026=True,  is_opt_2026=False),
-    dict(group="Бренд-коммуникации", instrument="Бумажные письма - Soft", is_base_2026=True,  is_opt_2026=False),
-    dict(group="Бренд-коммуникации", instrument="Центр уведомлений",    is_base_2026=True,  is_opt_2026=False),
-    dict(group="Бренд-коммуникации", instrument="e-mail Батч",          is_base_2026=False, is_opt_2026=False),
+    dict(group="Бренд-коммуникации", instrument="СМС батч",             is_base_2026=True,  is_opt_2026=False, is_anticrisis=True),
+    dict(group="Бренд-коммуникации", instrument="СМС обещание",         is_base_2026=True,  is_opt_2026=False, is_anticrisis=False),
+    dict(group="Бренд-коммуникации", instrument="СМС триггер",          is_base_2026=True,  is_opt_2026=False, is_anticrisis=True),
+    dict(group="Бренд-коммуникации", instrument="Self-Service",         is_base_2026=False, is_opt_2026=False, is_anticrisis=True),
+    dict(group="Бренд-коммуникации", instrument="Мобильный банк (экраны)", is_base_2026=False, is_opt_2026=False, is_anticrisis=True),
+    dict(group="Бренд-коммуникации", instrument="Истории/Баннеры",      is_base_2026=True,  is_opt_2026=False, is_anticrisis=False),
+    dict(group="Бренд-коммуникации", instrument="Бумажные письма - Soft", is_base_2026=True,  is_opt_2026=False, is_anticrisis=False),
+    dict(group="Бренд-коммуникации", instrument="Центр уведомлений",    is_base_2026=True,  is_opt_2026=False, is_anticrisis=False),
+    dict(group="Бренд-коммуникации", instrument="e-mail Батч",          is_base_2026=False, is_opt_2026=False, is_anticrisis=False),
     # 4. Выезды
-    dict(group="Выезды", instrument="АПД",                       is_base_2026=True,  is_opt_2026=False),
-    dict(group="Выезды", instrument="CarSearch",                 is_base_2026=True,  is_opt_2026=False),
-    dict(group="Выезды", instrument="Выезды для реализации",     is_base_2026=True,  is_opt_2026=False),
-    dict(group="Выезды", instrument="Выезды для Legal",          is_base_2026=False, is_opt_2026=False),
-    dict(group="Выезды", instrument="ФХД SME",                   is_base_2026=False, is_opt_2026=False),
-    dict(group="Выезды", instrument="Коллекторские выезды",      is_base_2026=False, is_opt_2026=False),
+    dict(group="Выезды", instrument="АПД",                       is_base_2026=True,  is_opt_2026=False, is_anticrisis=False),
+    dict(group="Выезды", instrument="CarSearch",                 is_base_2026=True,  is_opt_2026=False, is_anticrisis=False),
+    dict(group="Выезды", instrument="Выезды для реализации",     is_base_2026=True,  is_opt_2026=False, is_anticrisis=False),
+    dict(group="Выезды", instrument="Выезды для Legal",          is_base_2026=False, is_opt_2026=False, is_anticrisis=False),
+    dict(group="Выезды", instrument="ФХД SME",                   is_base_2026=False, is_opt_2026=False, is_anticrisis=False),
+    dict(group="Выезды", instrument="Коллекторские выезды",      is_base_2026=False, is_opt_2026=False, is_anticrisis=True),
     # 5. Реструктуризация
-    dict(group="Реструктуризация", instrument="Бизнес-программы",       is_base_2026=False, is_opt_2026=False),
-    dict(group="Реструктуризация", instrument="Государственные программы", is_base_2026=False, is_opt_2026=False),
+    dict(group="Реструктуризация", instrument="Бизнес-программы",       is_base_2026=False, is_opt_2026=False, is_anticrisis=True),
+    dict(group="Реструктуризация", instrument="Государственные программы", is_base_2026=False, is_opt_2026=False, is_anticrisis=True),
     # 6. Реализация
-    dict(group="Реализация", instrument="ДРЗ авто",              is_base_2026=False, is_opt_2026=False),
-    dict(group="Реализация", instrument="ДРЗ недвижимость",      is_base_2026=False, is_opt_2026=False),
-    dict(group="Реализация", instrument="Баланс авто",           is_base_2026=False, is_opt_2026=False),
-    dict(group="Реализация", instrument="Баланс недвижимость",   is_base_2026=False, is_opt_2026=False),
+    dict(group="Реализация", instrument="ДРЗ авто",              is_base_2026=False, is_opt_2026=False, is_anticrisis=False),
+    dict(group="Реализация", instrument="ДРЗ недвижимость",      is_base_2026=False, is_opt_2026=False, is_anticrisis=False),
+    dict(group="Реализация", instrument="Баланс авто",           is_base_2026=False, is_opt_2026=False, is_anticrisis=False),
+    dict(group="Реализация", instrument="Баланс недвижимость",   is_base_2026=False, is_opt_2026=False, is_anticrisis=False),
     # 7. Платежные сервисы
-    dict(group="Платежные сервисы", instrument="Автоплатежи (с2с+СБП)", is_base_2026=False, is_opt_2026=False),
-    dict(group="Платежные сервисы", instrument="Кредитные блокировки",  is_base_2026=False, is_opt_2026=False),
-    dict(group="Платежные сервисы", instrument="Списание малых недоплат", is_base_2026=False, is_opt_2026=False),
-    dict(group="Платежные сервисы", instrument="Joint Collection",      is_base_2026=False, is_opt_2026=False),
-    dict(group="Платежные сервисы", instrument="Аресты",                is_base_2026=False, is_opt_2026=False),
+    dict(group="Платежные сервисы", instrument="Автоплатежи (с2с+СБП)", is_base_2026=False, is_opt_2026=False, is_anticrisis=True),
+    dict(group="Платежные сервисы", instrument="Кредитные блокировки",  is_base_2026=False, is_opt_2026=False, is_anticrisis=False),
+    dict(group="Платежные сервисы", instrument="Списание малых недоплат", is_base_2026=False, is_opt_2026=False, is_anticrisis=False),
+    dict(group="Платежные сервисы", instrument="Joint Collection",      is_base_2026=False, is_opt_2026=False, is_anticrisis=False),
+    dict(group="Платежные сервисы", instrument="Аресты",                is_base_2026=False, is_opt_2026=False, is_anticrisis=False),
 ]
 
 # Lookup: instrument name → is_base_2026 flag
@@ -355,13 +356,15 @@ def generate_html(data, products_catalog=None, instruments_catalog=None):
     cat_products = [{"agg": p["agg"], "prod": p["prod"], "subprod": p["subprod"],
                      "w_agg": p["w_agg"], "w_prod": p["w_prod"], "w_subprod": p["w_subprod"]}
                     for p in (products_catalog or [])]
-    # Enrich with base/opt flags from INSTRUMENTS_OVERRIDE
+    # Enrich with base/opt/anticrisis flags from INSTRUMENTS_OVERRIDE
     _by_name = {i["instrument"]: i for i in INSTRUMENTS_OVERRIDE}
     cat_instruments = [{"group": i["group"], "instrument": i["instrument"],
-                        "is_base_2026": _by_name.get(i["instrument"], {}).get("is_base_2026", False),
-                        "is_opt_2026":  _by_name.get(i["instrument"], {}).get("is_opt_2026",  False)}
+                        "is_base_2026":  _by_name.get(i["instrument"], {}).get("is_base_2026", False),
+                        "is_opt_2026":   _by_name.get(i["instrument"], {}).get("is_opt_2026",  False),
+                        "is_anticrisis": _by_name.get(i["instrument"], {}).get("is_anticrisis", False)}
                        for i in (instruments_catalog or [])]
     base_2026_instruments = sorted(i["instrument"] for i in INSTRUMENTS_OVERRIDE if i["is_base_2026"])
+    anticrisis_instruments = sorted(i["instrument"] for i in INSTRUMENTS_OVERRIDE if i.get("is_anticrisis"))
     subseg_data = [[sp, segs] for sp, segs in SUBSEGMENTS]
     subseg_cat_data = {k: list(v) for k, v in SUBSEGMENT_CATEGORIES.items()}
 
@@ -376,6 +379,7 @@ def generate_html(data, products_catalog=None, instruments_catalog=None):
         "catalog_products": cat_products,
         "catalog_instruments": cat_instruments,
         "base_2026_instruments": base_2026_instruments,
+        "anticrisis_instruments": anticrisis_instruments,
         "subsegments": subseg_data,
         "subsegment_categories": subseg_cat_data,
         "csv_headers": CSV_HEADERS,
@@ -663,6 +667,7 @@ td.left {{ text-align: left; }}
       <li><b>Подсегменты</b> — КК Обычная делится на «до 200к» и «свыше 200к» (вес 50/50). Остальные продукты без подсегментов.</li>
       <li><b>Фильтры</b> — применяются ко всем вкладкам одновременно. Если ничего не выбрано — показываются все. Выбор нескольких = логическое ИЛИ внутри фильтра.</li>
       <li><b>Базовый план 2026</b> — по умолчанию дашборд показывает только инструменты из базового плана на 2026 год. Чтобы увидеть все 30 инструментов, снимите галочку «Только базовый план 2026» в шапке.</li>
+      <li><b>Антикризис</b> — дополнительная (не исключающая) метка: помечает инструменты, задействованные в антикризисном сценарии. Видна в справочнике инструментов ниже как оранжевый бейдж рядом с зелёным «базовый». На фильтрацию дашборда не влияет.</li>
     </ul>
   </div>
 
@@ -686,7 +691,7 @@ td.left {{ text-align: left; }}
 
   <div class="info-box">
     <h3>Справочник инструментов</h3>
-    <p style="color:var(--muted);font-size:13px;margin-bottom:8px">Полный список инструментов (30 шт.) с флагом «базовый план на 2026 год». Зелёный бейдж «базовый» = инструмент входит в базовый план на 2026 и показывается на дашборде по умолчанию.</p>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:8px">Полный список инструментов (30 шт.) с метками. <span style="background:var(--green-l);color:var(--green);padding:2px 8px;border-radius:8px;font-weight:600;font-size:12px">базовый</span> = инструмент входит в базовый план на 2026 и показывается на дашборде по умолчанию. <span style="background:var(--amber-l);color:var(--amber);padding:2px 8px;border-radius:8px;font-weight:600;font-size:12px">антикризис</span> = инструмент задействуется в антикризисном сценарии (метка дополняет «базовый», не исключает; на фильтрацию дашборда не влияет).</p>
     <div id="help-instruments"></div>
   </div>
 
@@ -788,6 +793,7 @@ function clearFilters() {{
 }}
 
 const BASE_2026_SET = new Set(D.base_2026_instruments || []);
+const ANTICRISIS_SET = new Set(D.anticrisis_instruments || []);
 
 function isBaseFilterOn() {{
   return document.getElementById('f-base-2026').checked;
@@ -1273,18 +1279,19 @@ function renderHelpCatalogs() {{
   const helpProd = document.getElementById('help-products');
   if (helpProd) helpProd.innerHTML = hp;
 
-  // Instruments table: all 30 instruments with base-2026 flag
-  let hi = '<table><thead><tr><th>Группа</th><th>Инструмент</th><th style="text-align:center">Базовый план 2026</th></tr></thead><tbody>';
+  // Instruments table: all 30 instruments with base-2026 + anticrisis flags
+  let hi = '<table><thead><tr><th>Группа</th><th>Инструмент</th><th style="text-align:center">Метки</th></tr></thead><tbody>';
   let lastGrp = '';
   (D.catalog_instruments || []).forEach(m => {{
     if (m.group !== lastGrp) {{
       hi += `<tr><td colspan="3" style="background:var(--yellow);color:#333;font-weight:700;font-size:13px;padding:6px 10px;text-align:left">${{m.group}}</td></tr>`;
       lastGrp = m.group;
     }}
-    const badge = m.is_base_2026
-      ? '<span style="background:var(--green-l);color:var(--green);padding:2px 10px;border-radius:10px;font-weight:600;font-size:12px">базовый</span>'
-      : '<span style="color:var(--muted)">—</span>';
-    hi += `<tr><td></td><td class="left">${{m.instrument}}</td><td style="text-align:center">${{badge}}</td></tr>`;
+    const badges = [];
+    if (m.is_base_2026)  badges.push('<span style="background:var(--green-l);color:var(--green);padding:2px 10px;border-radius:10px;font-weight:600;font-size:12px">базовый</span>');
+    if (m.is_anticrisis) badges.push('<span style="background:var(--amber-l);color:var(--amber);padding:2px 10px;border-radius:10px;font-weight:600;font-size:12px">антикризис</span>');
+    const cell = badges.length ? badges.join(' ') : '<span style="color:var(--muted)">—</span>';
+    hi += `<tr><td></td><td class="left">${{m.instrument}}</td><td style="text-align:center">${{cell}}</td></tr>`;
   }});
   hi += '</tbody></table>';
   const helpInstr = document.getElementById('help-instruments');
@@ -1727,11 +1734,13 @@ function edBuildXLSX() {{
   }});
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(prodData), 'PRODUCTS');
 
-  // INSTRUMENTS sheet
-  const instrHeaders = ['Группа','Инструмент'];
+  // INSTRUMENTS sheet — informational columns (flags are source-of-truth in code, see INSTRUMENTS_OVERRIDE)
+  const instrHeaders = ['Группа','Инструмент','Базовый 2026','Антикризис'];
   const instrData = [instrHeaders];
   (D.catalog_instruments || []).forEach(inst => {{
-    instrData.push([inst.group, inst.instrument]);
+    instrData.push([inst.group, inst.instrument,
+                    inst.is_base_2026 ? 'Да' : 'Нет',
+                    inst.is_anticrisis ? 'Да' : 'Нет']);
   }});
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(instrData), 'INSTRUMENTS');
 
