@@ -466,8 +466,7 @@ function cmpProdCat(pA,cA,pB,cB) {
 function fmtPct(v) {
   const p = v * 100;
   if (p === 0) return '0%';
-  if (p < 0.1) return p.toFixed(2) + '%';
-  return p.toFixed(1) + '%';
+  return p.toFixed(2) + '%';
 }
 function fmtDate(s) {
   if (!s) return '';
@@ -559,7 +558,7 @@ function renderDashboard() {
       } else {
         const tw = active.reduce((s, r) => s + r.weight, 0) || 1;
         const p = active.reduce((s, r) => s + r.weight * (r.progress || 0), 0) / tw;
-        const pct = (p * 100).toFixed(1);
+        const pct = (p * 100).toFixed(2);
         if (p >= 1.0) {
           h += `<td class="mx-done">100%</td>`;
         } else if (p > 0) {
